@@ -1,0 +1,30 @@
+#=========================================
+ABF analysis application 
+(use of pyABF for specific problems) 
+#=========================================
+
+Usage:
+    Put this in your working path (different from pyABF), while pyABF should be added to your python path (see pyABF README)
+
+Purpose:
+    doing analysis and use those gmt scripts to generate figures of each factors
+    doing comparisons between CyberShake models and NGA models 
+
+Content:
+./data is prepared before running anything (you need to get them)
+./metadata is intermediate data path to save files generated on the fly. 
+./scripts have python and GMT scripts for analysis and gmt plots
+./bin has the shell scripts that run the Java application to compute NGA flat information
+
+Requirements: 
+    Python 2.7, 
+    Java (latest) 
+    GMT and Netcdf verions: 
+	GMT4.5.8/
+	netcdf-3.6.3/ 
+    
+    optional (if you copy all the metadata) 
+	OpenSHA
+	Matlab 
+    These two are required if you generate your own metadata for disaggregation and NGA, directivity outputs
+
