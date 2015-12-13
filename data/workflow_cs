@@ -1,0 +1,39 @@
+Site-based data extraction workflow
+
+0. find the site id of interest based on site name
+select * from CyberShake_Sites where CS_Site_Name='s351'  (e.g.)
+
+1. find the correct run_id for site, model, rupture model generation
+select * from CyberShake_Runs where Site_ID = 282 and ERF_ID= 35 and Rup_Var_Scenario_ID=3 and Velocity_Model_ID =1
+return the run_id for further usage (IM extraction)
+
+2. get all source id, rupture id, rup_var_id available for the site of the specific run_id
+select * from CyberShake_Site_Ruptures where CS_Site_ID = 282 and ERF_ID= 35 
+
+3. select source id for specified source name (e.g., Southern San Andreas Fault)
+select * from Ruptures where ERF_ID = 35 and Source_Name='S. San Andreas' 
+
+4. check rupture variations using source_id obtained from 3
+select * from Rupture_Variations where ERF_ID= 35 and Source_ID=128 and Rup_Var_Scenario_ID=3
+
+Note: here how to find correct rupture for one source to plot the red-dot plot?
+      each source and rupture, there are four rupture variations (two hypocenter and two slip distribution for each hypo)
+      ??? where do the 38 rupture variations for each epicenter come from? Ask Scott and Kevin
+
+5. check site-ruptures
+select * from CyberShake_Site_Ruptures where CS_Site_ID=282 and ERF_ID= 35 and Source_ID=128 
+
+6. visualize rupture variation (find Rup_Var_LFN and download it from disk)
+select * from Rupture_Variations where ERF_ID = 35 and Source_ID=128 and Rupture_ID=0 and Rup_Var_Scenario_ID=3
+From column Rup_Var_LFN get the file name
+
+7. look the SA measurements for station based on run_id, source id and rupture id
+select * from IM_types (to check Sa types, i.e., periods, and unit of Sa, components)
+select * from PeakAmplitudes where Run_ID= 501 and Source_ID = 128 
+
+8. post-processing
+   get all im for various rutpure variation along one source and various hypocenter and slip distribution
+   to quantitatively measure the directivity-basin coupling
+
+   More model and rupture model sensitivity investigation follow this general procedure.
+

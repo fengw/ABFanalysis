@@ -1,0 +1,493 @@
+#####
+# seismic hazard models
+##### 
+In general, SHA need: 
+1. seismic-hazard source model which gives the distribution of
+magnitudes, fault geometry identification and rate of occurrences
+for example, UCERF2.0, there are four parts: 
+a. Fault models ( specify the spatial geometry of large, more active faults )
+b. Deformation models ( provide fault slip rates used to calculate the seismic
+                        moment release )
+c. Earthquake rate models (give the long-term rate of all possible damaging earthquake 
+                           throughout a region )
+d. Probability model ( give the probability that each earthquake in the given earthquake 
+                       rate model will occure during a specific time span )
+   (Poisson distribution for given rate)
+
+Earthquake source: a particular fault and its list of ruptures would then represent the 
+various magnitude and or rupture surface possibilities for its next event, we then call 
+this as earthquake rupture forecasting (includeing magnitude and different fault segments)
+Rupture variations: different realizations for given rupture, it comprises hypocenter 
+location, slip-distributions and is used to represent the aleatory uncertainties in 
+ground motion prediction models (CyberShake)
+
+
+2. Ground motion prediction model to predict the ground motion level for given events 
+   and sites or given distance.
+   For example, NGA relations, simulation-based ground motion prediction
+
+3. Probability calculation
+   Combining the rupture forecasting (1) and the ground motion prediction (2) to give the 
+   probability of exceeding some ground motion level in a time span for all possible
+   earthquakes at a site or a map of sites, i.e., to create the hazard curves.
+
+PHSA want to quantify the conditional probability of exceeding an intensity measure level (IML), 
+such as PSA at 3.0 sec, for all possible earthquakes at a site or a map of sites.
+basically, hazard curves and hazard maps are the output from PSHA.
+
+for given IML, and site (calculate one point of the hazard curve): 
+1. P(IM > IML | rupture, site ): probability of exceeding the IML for a given earthquake 
+                                 (for UCERF2.0, the combination of a rupture and magnitude)
+   In general, it is computed using ground motion prediction models.
+
+   For CyberShake, this is computed by extending the earthquake rupture forecasting with 
+   multiple hypocenters and slip-distributions (sampling) and statistically generate the 
+   normalized cumulative distribution (in probability sense). (you can rank IM values computed
+   for all rupture variations of the given rupture at the site of interest, and get the distribution)
+
+   For NGA, this is computed by first given the rupture and the site, compute the median and standard deviation of 
+   the IM and generate this probability by assuming the normal distribution which is characterized by the mean and 
+   standard deivation of the lnIM (it's easy to compute the cumulative distribution for the normal or Gaussian distribution)
+
+2. R_tot(IM > IML | site ) = sum_over_ruptures( P(IM>IML|rupture,site) * R(rupture) )
+   
+   Any seismic-hazard source model should give the annual rate of occurrences R(rupture) for each rupture (or earthquake)
+   Once P(IM>IML | rupture, site) are computed using either CyberShake or NGA relations, we can compute the total annual
+   rate at which each IML is exceeded due to all possible ruptures (total probability for conditional probability, the truth).
+
+3. Using the Poisson distribution, we can compute the probability of exceeding IML in the next T years from the total annual rate by:
+   P_pois( IM > IML | site; T ) = 1 - exp( -R_tot( IM > IML | site ) * T )
+
+Now P_pois( IM>IML | site; T ) will be one point on the hazard curve, take a iterative values for IML (e.g. 0.0001 to 10g), and iterate over
+the above 3 steps to get complete hazard curves
+
+* OpenSHA compute hazard curves differently (without using annual rates), refer to Field et. al. 
+2003 SRL paper Appendix A:
+
+P(IM>IML | site) = 1 - multiple_over_i ( 1 - sum_over_j (P(IM>IML|R_ij,site)*P(Rup_ij)) ) 
+where i is the earthquake source index, and j is the rupture index for each earthquake source i 
+
+
+OpenSHA paper is very important for understanding the whole process! 
+
+from hazard curves, you can extract information (IML values where probability of exceedence is 2% for a given site), and construct hazard maps.
+
+In the ground motion prediction or P(IM>IML | rupture, site) calculation, CyberShake and NGA relations model the uncertainties differently.
+CyberShake models the uncertainties by extending rupture model to rupture variations and give equal weights for each rupture variation. while NGA models 
+model this uncertainties by model the mean and the standard deviation from the regression to observed intensity measures.
+
+CyberShake use physics-based simulations to capture the complex wave propagation process and use extended rupture forecast to capture epistemic uncertainties
+which in NGA relations are modeled in inter- and intra-event standard deviation. This is the key of analyzing the two types of hazard models.
+
+# ================================
+# Keep those questions in your mind 
+# ================================
+1. What’s important to the hazard assessment? 
+   if change one aspect, what would the hazard curve be changed? (Norm's exercise!)
+   Standard deviation of the ground-motion variability or the sigma in Gaussian 
+2. How to convince people to use the results from simulations? 
+   ground motion validation
+3. What are the effect of magnitude (size of the earthquake) on the hazard assessment? (Yehuda's comment)
+4. Broadband platform related: 
+   Modeling of the variability in source parameters! 
+   e.g. the distribution of hypocenter used in the broadband platforms.  
+
+
+# ======================
+# Uncertainties in PHSA
+# ======================
+
+Uncertainties generally represent the fact that different parameter values, models, or 
+outcomes have different probabilities. 
+Aleatory uncertainties represent those for which, given enough tiem or realizations, all
+possibilities will eventually be sampled. For this reason, aleatory uncertainties are 
+accounted for explicitly in computing the total probability (the sum)
+Epistemic uncertainties represent different possibilities for an entity that has only one
+true, but currently unknown, value. In this case, a different total probability is computed 
+for each option, leading to a distribution of possible probabilities. 
+
+PSHA can account for any uncertainties provided they are quantifiable. There 
+are two general two categories of uncertainties that need to be handled differently,
+Epistemic Uncertainties: resulting from an inadequate understanding.
+                         with time, these uncertainties can be reduced and the true
+                         value ascertained. e.g. the true mean and standard deviation                          of M7.8 strike-slip events recored at 10km distance predicted
+                         by NGA relations.
+
+Aleatory Uncertainties: Due to the intrinsic variability of nature.
+                        Over time, all values will eventually be sampled.
+                        e.g. the scatter, about the mean, of PGAs observed from all  
+                        M7.8 strike-slip events recorded at 10km. 
+
+For the NGA relations, the aleatory uncertainties are reflected in the range of possible
+IM values for the next earthquake of given magnitude and distance, as represented by 
+the mean and standard deviation. This range of values is averaged (integrated) in 
+computing P(IM>IML|rupture,site). However, for different NGA relations, each reports a
+different mean and standard deviation at a given magnitude and distance. This represents
+epistemic uncertainty, as time will eventually tell what the true mean and true standard
+deviation are. 
+
+For UCERF2.0, it represents the epistemic uncertainty by including: 
+fault segment endpoints, fault slip rate, magnitude-area scaling relationships, the 
+rupture probability model applied to each fault, i.e., how many magnitudes (or rupture)
+could be applied to each fault, and what's the probability of each rupture?
+Source: rupture area 
+Rupture: stress drop
+Rupture variations: slip distribution and hypocenter locations
+
+For CyberShake, the aleatory uncertainties are modeled by extend the earthquake 
+forecasting with multiple realizaions (rupture variations) for a given rupture 
+(fault+magnitude), and the epistemic uncertainties are modeled by using simulation-based
+ground motion prediction with different rupture generators (as in dk(x,s)) 
+and velocity models (as in b(s)), and also, CyberShake calibrates the magnitude-area 
+scaling (as in ck(s)), and overall epistemic uncertainties as in a factor.
+
+
+
+
+
+
+# ============
+# CyberShake
+CyberShake a probabilistic seismic hazard analysis (PSHA) model
+# ============
+CyberShake is developing a methodology that explicitly incorporates 
+deterministic source and wave propagation effects within seismic hazard
+calculations through the use of physics-based 3D ground motion simulations.
+
+First, to seismic hazard estimate for a specified site of interest, we begin 
+with Uniform California Earthquake Rupture Forecast, Version 2.0 (UCERF2.0) and
+identify all ruptures within 200km of the site of interest.
+The rupture definition in UCERF2.0 are then converted into multiple rupture
+variations by the way to differ hypocenter locations and slip distributions, 
+resulting in about 415000 rupture variations per site. Strain Green Tensor (SGT)
+are computed for the site of interest using CVM4 and CVM-H. By using reciprocity,
+broadband synthetic seismograms are computed for each rupture variations. Then,
+these computed synthetic seismograms could be used in probabilistic seismic hazard
+analysis (PSHA).
+SGT are computed at 200 sites in Los Angeles region for ground shaking periods of
+2 seconds (0.5 hz) and longer (<0.5hz), providing the basis for the first generation
+CyberShake hazard maps.
+
+
+# CyberShake Studies (experiments or phases)
+#    SGT_Variation_ID + Rup_Var_Scenario_ID + Velocity_Model_ID + Max_Frequency
+1.0: RG_FD (v3) + 2007 Rupture Generator + CVM-S + LF (complete)
+1.1: RG_FD (v3) + 2010 Rupture Generator + CVM-S + LF (partially)
+1.2: RG_FD (v3) + 2007 Rupture Generator + CVM-H + LF (partially)
+1.3: RG_FD (v3) + 2010 Rupture Generator + CVM-H + LF (partially)
+1.4: RG_FD (v3) + 2010 Rupture Generator + CVM-S/H + HF (PBR Sites) 
+1.5: RG_FD (v3.0.3)/AWP + 2010 Rupture Generator + CVM-S (no results) 
+    where SGT_Variation_ID = 6: RG_FD (v3.0.3), and SGT_Variation_ID=7: AWP 
+
+2.0: Based on UCERF2 (ERF_ID=35), uses multiple CVM's, a new extended ERF generator, with statewise capacities, max frequency at 1Hz  
+2.2: Calculate hazard curves under CyberShake 1.1 as above (completely)
+
+13.4 (2.3) date-based study version numbering scheme from now on. The name shows the date that the study calculations were started.
+    include: 
+        (35,6,4,1), (35,6,4,4), (35,7,4,1), (35,7,4,4)
+   Note: they use Velocity_Model_ID = 1 and 2 to indicate the CVM-S4 and CVM-H v11.2 
+         Velocity_Model_ID = 4 to indicate the CVM-H v11.9.1
+   SGT_Variation_ID = 6 and 7 indicate the AWP and Graves and Pitarka updated numerical codes, repectively
+
+You could use all of them once finished for new chapters in your dissertation 
+When list a table which indicates all those ids, you can refer to mysql by
+select * from `SGT_Variation_IDs` ;
+select * from `Rupture_Variation_Scenario_IDs`;
+select * from `Velocity_Models`; 
+There are detailed descriptions about each id.
+
+
+# ===================
+# Components
+# ===================
+1. Source (rupture variation, locations, moment magnitude, etc.)
+   UCERF 2.0 provides us Earthquake Rupture Forecast (ERF) which shows all active faults.
+   ~ 7000 ruptures (or faults, or patches on a big fault) 
+   ~ 415000 rupture variations ( combination of hypocenter locations and slip distributions )
+   rupture variations are stored in standard rupture model (srf) format for each combination
+   of hypocenter and slip distributions.
+
+2. Path (3D velocity model)
+   Strain Green Tensor (SGT) for the site of interest
+   The way to store SGT over 3D volume is to computed in dense grid on the faults, but loose
+   in other place, since these possible sources will have large probabilites to have earthquakes,
+   and the response at site will be the convolution between sgt and rupture variations along the 
+   fault trace, so there is no need to compute SGT for all grid points.
+
+3. Site condition (Vs-30: the average of the shear velocity in the upper 30 meters)
+   5 km space of grid, and some of them are at actual stations deployed before.
+
+Note: erf35_source_rups.txt (erf file contains all sources and ruptures obtained from UCERF2.0)
+      srf4.pdf (Graves's definition of rupture formats to represent rupture variation)
+     
+# ================
+# Synthesis
+# ================
+Once the SGTs are calculated around the site, the ground motion waveforms for each of the
+approximately 415000 rupture variations are computed. For each individual rupture 
+variation, the SGTs corresponding to the location of the rupture (fault) are extracted from
+the volume (SGT is 3D) and convolved with the specific rupture variation to generate synthetic
+seismograms, which represent the ground motions that would be produced at the site.
+
+Actually, seismograms are already computed and stored at disk.
+You should specify search parameters in SQL to find corresponding id and names
+in order to find the correct seismogram.
+
+# Computing
+In the directory: 
+/auto/rcf-104/CyberShake2007/software/JBSim3d 
+
+Extract sgt for specified rupture variation
+and convolution between extracted sgt and the rupture variation
+integral over space of the rupture variation
+You should use existing softwares to compute seismograms, but transfer them 
+into local computer (Mac) and do the visualization and analysis for scientific
+purposes.
+
+
+# =========================
+CyberShake Data in disk 
+# =========================
+USC HPCC
+I. Ruptures:
+/auto/rcf-104/CyberShake2007
+
+   For each fault, multiple hypocenters and slip distributions are considered.
+   Hypocenters are placed every 20km along strike and two slip distributions are
+   run for each hypocenter.???
+
+./data contains:
+1. velocity model (e.g. CVM4)
+   Velocity_Model_ID (=1,2)
+   1: CVM-S
+   2: CVM-H
+   used to compare different velocity models
+
+2. SGT files (computed at specific sites, stored in the folder which has site's name)
+Use of reciprocity theorem
+   SGT_variation_ID (=5): Graves and Pitarka V3 (initial code)
+   =6 
+   =7 
+
+3. rupture models (ERF+SRF)
+    Rupture_Variation_Scenario_ID (=3,4)
+    3: old source generation
+    4: new source generation
+    In data/ruptures/
+    ./ruptures/RuptureVariations_35_V3_2 contains:
+    35 means erf35 (earthquake rupture forcast)
+
+    Folder structure
+    Folder named using Source ID (e.g. 1)
+      |_ Folder named using Rupture ID (e.g. 3) source ID
+	   |_  files: (SourceID)_(RuptureID).txt (ERF file)
+		      (SourceID)_(RuptureID).txt.variation.output (???)
+		      (SourceID)_(RuptureID).txt.variation-sID-hID (rupture variation)
+		      where sID shows slip distribution id, hID shows hypocenter location id
+		      SourceID+RuptureID+slipID+hypocenterID gives one rupture variation
+		      SourceID+RuptureID is the result of ERF 
+		      slipID+hypocenterID is the rupture model defined by Standard Rupture Format (SRF)
+		      slipID+hypocenterID is combined as Rup_Var_ID
+
+II. Seismograms (original unit: velocity cm/s):
+
+    /home/scec-02/tera3d/CyberShake2007/data/PPfiles/(SiteName)
+    cd to the folder named using site name you will see different Run_ID for the site
+    pick one you decide to choose based on your selection from the database using runid, 
+    cd to the corresponding runid folder, you will see a lot of zip files containing seismograms
+    name like: CyberShake_SiteName_RunID_tmpID_PSA.zip   (Peak Amplitude) (single values for particular period)
+	       CyberShake_SiteName_RunID_tmpID_seismograms.zip  (seismograms) (waveforms or time series)
+    tmpID is annoying for us to find the correction seismogram relative to the site and run id. 
+
+    # Seismogram file name convention:
+    For each seismogram in the zip folder, it has a name like:
+    Seismogram_(SiteName)_(SourceID)_(RuptureID)_(RupVarID).grm 
+    where RupVarID gives the correction hypocenter and slip distribution related to the given SourceID and RuptureID under the RunID as 
+    parent path (folder)
+
+    # script to find correct seismogram:
+    # before you do this, you should know the RuptureVarianceID which can be found in the CyberShake database using your own code
+    for i in `ls *seismogram*zip`; do echo $i; unzip -l $i | grep Seismogram_USC_68_7_1246.grm; done
+    (different sentences for different shells)
+    (use python os to relize this)
+    we find it is in 
+    /home/scec-02/tera3d/CyberShake2007/data/PPFiles/USC/205/USC_205_18_seismograms.zip
+
+    (I don't have the right to unzip file, one way is to find the zipped folder
+    that has the seismogram you want, and then unzip it -d your_own_directory, use
+    -d flag to unzip to your own directory)
+
+    new CyberShake seismograms are located in /home/scec-04/tera3d/CyberShake/data 
+    and the format is defined in  https://scec.usc.edu/it/Seismogram_and_PSA_headers_for_I/O_forwarding 
+    refer to fengw@hpc-login1.usc.edu:~/work/extract_tools.py 
+
+    file contains seismograms for two components with
+    dt = 0.1 s
+    nt = 3000  
+    Twin = 300 s  (???)
+    4 byte floats x 3000 data points x 2 seismograms = 24000 bytes    # check the size of the file
+    x half, y half (x,y directions are determined by the computing box)
+    they are not align in north-east coord. 
+       X: azimuth 35 degree; Y: azimuth 125 degree
+    So when you want to plot it in north-east coord, rotate it first
+
+    You can do the same thing to get SA and PGV, or in dataset, table: PeakAmplitudes (PGV, SA),
+    values could be found as well.
+
+This will provide full waveform seismic hazard model, because CyberShake contains physics-based simulations 
+and accounting for space-time variances in earthquake probabilities.
+Products include: Database of scenario ruptures, Waveforms and response spectra, hazard curves and maps, etc.
+
+Note: The next section is the SQL organization of entry of the database. After you found corresponding IDs, 
+you can actually go to the disk to find corresonding rupture models to visualize or seismograms to plot.
+Attention to the connection between data stored at disk and database store as tables and KML files, etc.
+
+# ====================================
+# CyberShake Database (tables)
+# ====================================
+Tool to use:
+MySQL client
+   MySQL GUI (Sequel Pro) (optional: MySQL workbench)
+   MySQL binary stored in /usr/local/mysql/bin/mysql
+MySQL-python (module MySQLdb)
+
+Installation 
+  Sequesl Pro (download from internet, dmg format)
+  MySQL binary (download MySQL Community Server 5.1 version from www.mysql.com)
+               file: mysql-5.1.15-osx10.5-x86.dmg (should be correct version for MySQL-python)
+	       http://www.mysql.com/downloads/mysql/5.1.html
+	       
+               MySQL: x86 (32bit), version: 5.1
+	       MySQL-python: 32bit and version 2.3-2.6
+
+# Database access info
+host: focal.usc.edu
+port: 3306
+username: cybershk_ro
+password: ****
+Database Name: CyberShake
+
+# Use MySQL:
+1.  For client just like ssh configuration in NX, simply input the above info
+    Basically, just use mouse to select and also you can edit queries to perform data manipulations
+    
+    * There are six basic operations on the database (query is used to interact with the database)
+      
+      Selecting data (SELECT A from B)
+      Filtering (WHERE, IN)
+      Sorting (ORDER BY)
+      
+      Aggregation (SUM, MAX, MIN, AVG, GROUP BY, etc.)
+      Jointing Tables
+      Missing Data
+
+      What you will use a lot is:
+      SELECT (what_to_select) FROM (which_table) WHERE (conditions_to_satisfy)
+           
+           1. Selecting particular rows by using logical conditions of column (field)
+           SELECT * FROM Table WHERE column_name = (corresponding value)
+           2. Selecting particular column:
+           SELECT column_name_tuple FROM table_name
+           Combine the two you will get the value for one column and one row
+           
+      The condition is the same as Python (you can use AND,OR,NOT) 
+      
+      Sorting:
+      SELECT column_name_list FROM Table ORDER BY column_name DESC (default is ASC)
+
+
+2.  For command line to type: 
+    mysql -u cybershk_ro -h focal.usc.edu -p CyberShake
+    you can alias in .bashrc as 'cybershk' for the above command
+    Once you go into mysql, you will see: "mysql>" as prompt
+    Then you can type query directly after ">" to perform data manipulations (selection, filtering, etc.)
+
+3.  For MySQLdb-python, do the following basic procedure
+    import MySQLdb as mdb
+    database = mdb.connect(host='focal.usc.edu',user='cybershk_ro',passwd='CyberShake2007',db='CyberShake')
+    cursor = database.cursor()
+    query = 'SELECT (field_name) FROM (table_name) WHERE (select_condition)'
+    cursor.execute( query )  
+
+    result = cursor.fetchone()   # retrieve one row from the outputs
+    or 
+    result = cursor.fetchall()   # retrieve all rows from the outputs
+
+    cursor.close()
+    database.close()
+
+Note: In the database, for site selection, the runID is the key, make sure you use the latest results
+      (You could find the run time for each runID)
+
+
+Something important when searching in the database:
+1. In CyberShake_Runs table, it contains basic information used in scenarios run:
+use ERF_ID = 35
+SGT_Variation_ID (low frequency or high frequency?) should use 5
+Rup_Var_Scenario_ID (3: old rupture model; 4: new stochastic rupture model)
+Veloctiy_Model_ID (1: CVM-S; 2: CVM-H)
+Max_Frequency = NULL and Low_Frequency_Cutoff = NULL <=> deterministic runs
+Max_Frequency = 10 Hz <=>   broadband (deterministic + empirical simulation)
+
+Run_ID, Site_ID (for sites, there might be many different runs depending on different
+                 velocity models, rupture generators, or frequency bands, 
+                 check them before you use them)
+Classify site types
+
+Check availability of seismograms for specific site-rupture_variation pair
+you can check in table: CyberShake_Site_Rupture
+
+
+2. find correct rupture variations
+# For ERF_ID = 35, Source_ID = 68, Rupture_ID = 7
+From tabel Rupture_Variations, check all variations of ruptures for this set.
+for example, we pick Rup_Var_ID = 1246
+# Once you have those id above, you could find the rupture variations:
+select * from Rupture_Variations where Rup_Var_LFN="e35_rv3_68_7.txt.variation-s0047-h0024";
+and the rupture descriptions can be found in:
+/home/rcf-104/CyberShake2007/ruptures/RuptureVariations_35_V2_3/68/7/68_7.txt.variation-s0047-h0024
+
+
+3. Summary of extraction:
+# Use one example as following:
+#
+select * from CyberShake_Sites where CS_Short_Name='USC';    
+# get SiteID given Site_Short_Name
+
+# if given rup_var_scenario
+select * from CyberShake_Runs where ERF_ID=35 and SGT_Variation_ID=5 and Rup_Var_Scenario_ID=4 and Velocity_Model_ID=1 and Site_ID = 18;  
+# get verified Run_ID given CyberShake Study and Site_ID (747 used here)
+select * from CyberShake_Runs where Site_ID=18 and Status="Verified" and Max_Frequency is NULL;
+
+
+# if given runid (equivalent to be given erf_id, sgt_id, rup_var_scenario_id velocity_model_id and site_id)
+select * from CyberShake_Runs where Run_ID=827 
+
+select * from CyberShake_Site_Ruptures where CS_Site_ID = 18 and Source_ID = 128 and Rupture_ID = 1263;    
+# In the verified run find specific ruptures constrained by SourceID and RuptureID from UCERF2.0
+
+select * from PeakAmplitudes where Run_ID = 747 and Source_ID = 128 and Rupture_ID = 1263;    
+# check whether IMs are compute for the selected Run_ID and (SourceID,RuptureID), if yes, the results will show hypo+slip Rupture_Var_IDs and IMs at different periods
+
+select * from Rupture_Variations where ERF_ID = 35 and Rup_Var_Scenario_ID = 4 and Source_ID = 128 and Rupture_ID = 1263;
+# get all possible rupture variations related to given ERFID,Rup_Var_Scenario_ID and (SourceID,RuptureID)
+
+# IF all above conditions are satisfied, you use the current siteID or RunID for further extraction as following:
+select * from IM_Types;      # Give the the IM_Type_ID which distinguish IMs at different periods (low freuqency up to 1Hz or broadband up to 10 Hz, and geometric mean or Sa_x, Sa_y)
+
+
+# Other useful query
+# Check all sites with verified runs for given CyberShake Study 
+select * from CyberShake_Runs where ERF_ID = 35 and SGT_Variation_ID = 5 and Rup_Var_Scenario_id = 4 and Velocity_Model_ID = 1 and Status='Verified' and Max_Frequency IS Not NULL;
+select * from CyberShake_Runs where ERF_ID = 35 and SGT_Variation_ID = 5 and Rup_Var_Scenario_id = 4 and Velocity_Model_ID = 1 and Status='Verified' and Max_Frequency IS NULL;
+
+
+
+# ==================
+# lesson to learn
+# ==================
+SQL programming to write query for specific purposes
+GMT file generation from python for further plotting
+
+
+
