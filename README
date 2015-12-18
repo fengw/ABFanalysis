@@ -14,7 +14,9 @@ Content:
 ./data is prepared before running anything (you need to get them)
 ./metadata is intermediate data path to save files generated on the fly. 
 ./scripts have python and GMT scripts for analysis and gmt plots
-./bin has the shell scripts that run the Java application to compute NGA flat information
+./bin has the shell scripts that run the Java application to compute NGA flat information; you need to add this bin path to your system $PATH in order to use it! 
+
+
 
 Requirements: 
     Python 2.7, 
