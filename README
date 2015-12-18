@@ -7,16 +7,20 @@ Usage:
     Put this in your working path (different from pyABF), while pyABF should be added to your python path (see pyABF README)
 
 Purpose:
-    doing analysis and use those gmt scripts to generate figures of each factors
-    doing comparisons between CyberShake models and NGA models 
+    Doing analysis and use those gmt scripts to generate figures of each factors
+    Doing comparisons between CyberShake models and NGA models 
 
 Content:
 ./data is prepared before running anything (you need to get them)
-./metadata is intermediate data path to save files generated on the fly. 
+./metadata is intermediate data path to save files generated on the fly.
+     * Disaggregation have the ERF35 disaggregation results used for source set selection (computed from OpenSHA)
+           In pyABF, Disaggregation.py will use OpenSHA application (DisaggregationPlotter) ask Kevin for details 
+     * Later, OpenSHA will compute the NGA08 related flat info (distance, site condition etc.) ask Kevin for details
+
 ./scripts have python and GMT scripts for analysis and gmt plots
-./bin has the shell scripts that run the Java application to compute NGA flat information; you need to add this bin path to your system $PATH in order to use it! 
-
-
+./utils have the software to compute directivity effect based on Spudish and Chiou 2008 model (matlab required)
+./bin has the shell scripts that run the Java application to compute NGA flat information
+     * You need to add this bin path to your system $PATH in order to use it! 
 
 Requirements: 
     Python 2.7, 
@@ -30,3 +34,5 @@ Requirements:
 	Matlab 
     These two are required if you generate your own metadata for disaggregation and NGA, directivity outputs
 
+Note: 
+For creating OpenSHA NGA flatfiles, use ERF_ID = 35 (modify the code in the 
