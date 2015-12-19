@@ -16,6 +16,7 @@ Content:
      * Disaggregation have the ERF35 disaggregation results used for source set selection (computed from OpenSHA)
            In pyABF, Disaggregation.py will use OpenSHA application (DisaggregationPlotter) ask Kevin for details 
      * Later, OpenSHA will compute the NGA08 related flat info (distance, site condition etc.) ask Kevin for details
+       (change ./bin/nga_comparison_calc accordingly to the classpath!)
 
 ./scripts have python and GMT scripts for analysis and gmt plots
 ./utils have the software to compute directivity effect based on Spudish and Chiou 2008 model (matlab required)
@@ -29,10 +30,10 @@ Requirements:
 	GMT4.5.8/
 	netcdf-3.6.3/ 
     
-    optional (if you copy all the metadata) 
-	OpenSHA
+    optional (no need to if you copy all the metadata, but if use different ERF ID, you might need to rebuild the following) 
+	OpenSHA  (after svn the latest version, build them following the steps; ./data/OpenSHA/OpenSHA_Note, no need to use eclipse)
 	Matlab 
-    These two are required if you generate your own metadata for disaggregation and NGA, directivity outputs
+    These two are required if you generate your own metadata for disaggregation and NGA, directivity outputs (add matlab in your $PATH)
 
 Note: 
-For creating OpenSHA NGA flatfiles, use ERF_ID = 35 (modify the code in the 
+For creating OpenSHA NGA flatfiles, use ERF_ID = 35, test 36 

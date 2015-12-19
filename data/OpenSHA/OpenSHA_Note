@@ -1,0 +1,69 @@
+# OpenSHA usage
+1. use it on shock.usc.edu (remotely)
+
+  login:  ssh fengw@shock.usc.edu
+
+    the Shell command line tool is in:
+    /home/scec-00/cybershk/opensha/nga_comparison_calc.sh
+    (Link this to your work directory as nga_comparison_calc)
+
+    The source file for NGA calculation is in:
+    /home/scec-00/cybershk/opensha/OpenSHA/src/org/opensha/sha/cybershake/calc/NGAComparisonCalc.java
+
+
+2. Use it on the local machine (prefer this way)
+Attention to the Java Version (Java SE 6 or Java 1.6.0) Library etc. (for the corresponding Macbook OS version)
+
+First, check out OpenSHA as follows:
+
+     svn co https://source.usc.edu/svn/opensha/trunk
+
+then cd into the "ant" subdirectory (make sure you have apache ant installed) and issue these commands to build:
+
+    ./runAnt.sh build.xml
+    ./runAnt.sh build.xml resource.all
+    ./runAnt.sh build.xml unjar.libs.common
+
+?????
+Every time when you add new modules in to it, you need to rebuild it? before you do this, ask Kevin
+or just compile the added modules (generate *.jar in the classpth) ???
+?????
+
+Answer: you need to svn the updated version of the code and rebuild it. follow the two step
+You can then copy over the "nga_comparison_calc" script, updating the "dir=..." line to point to the correct directory.
+
+
+3. Use it throught eclipse
+Or, you can use eclipse for a graphical environment:
+https://opensha.usc.edu/trac/wiki/SettingUpEclipse#ObtainingSourceCodeviaEclipse
+
+    Download eclipse
+    http://www.open.collab.net/
+    windjava
+    gogofeng
+
+4. Run programs:
+    I put the nga_comparison_calc.sh as nga_comparison_calc in the $HOME/local/bin and add to path
+    Then I could use nga_comparison_calc everywhere (typically, in the directory where you want to 
+    save the output files)
+
+    go to the work directory ./nga_comparison_calc <input_file>
+    the input file should have format like this:
+    SourceID, RuptureID, Period
+   
+    run it in eclipse 
+    if you need put input parameters, use run configuration (very easy)
+5. Outputs
+    # the output (SA for four NGA models) Y1 (g)
+    then Y = exp( Y1 )*9.8*100    in cm/s^2
+    The output file is in csv format, you can manipulate it in python using readlines()
+    or use import csv to manipulate it.
+
+
+# =====================
+# Components
+# ====================
+# 1. IMR are located at:
+# /Users/fengw/local/opensha/trunk/src/org/opensha/sha/imr/attenRelImpl 
+#
+Copyright belongs to SCEC OpenSHA 

@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# OpenSHA path (depending on users case)
+opensha_dir="$HOME/local/opensha/trunk"   # depending on your path for opensha 
+
+set -o errexit
+
+# user defined java path
+java="$HOME/local/Java/bin/java"
+
+# use system default java if the above java path is not found 
+if [ ! -x $java ];then
+    java="java"
+fi
+
+# before use this, you need to build OpenSHA following the steps
+classpath="${opensha_dir}:${opensha_dir}/classes"
+$java -cp $classpath org.opensha.sha.cybershake.calc.NGAComparisonCalc $@
+
+
+
+# Note: 
+#org.opensha.sha.cybershake.calc.NGAComparisonCalc need to be built
+# input file format: 
+# sourceID ruptureID Period 
+# ....
+# this will give the NGA values for all sites in cybershake that can be used in # ABF analysis.
+

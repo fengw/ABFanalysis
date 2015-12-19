@@ -404,7 +404,7 @@ Database Name: CyberShake
 
 3.  For MySQLdb-python, do the following basic procedure
     import MySQLdb as mdb
-    database = mdb.connect(host='focal.usc.edu',user='cybershk_ro',passwd='CyberShake2007',db='CyberShake')
+    database = mdb.connect(host='focal.usc.edu',user='cybershk_ro',passwd='****',db='CyberShake')
     cursor = database.cursor()
     query = 'SELECT (field_name) FROM (table_name) WHERE (select_condition)'
     cursor.execute( query )  
