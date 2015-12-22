@@ -2,7 +2,8 @@
 % in command line: matlab -nojvm < run.m
 % 
 clc;
-wkd = '/Users/fengw/work/Project/ABF_analysis/utils/fD_compute/';
+% this path should be changed for user's case
+wkd = '/Users/fengw/work/Project/ABFanalysis/utils/fD_compute/';
 input_file = [wkd 'input_file'];
 
 % INPUT info
