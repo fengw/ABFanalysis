@@ -20,6 +20,8 @@ Content:
 
 ./scripts have python and GMT scripts for analysis and gmt plots
 ./utils have the software to compute directivity effect based on Spudish and Chiou 2008 model (matlab required)
+     * Change the ABFanalysis/utils/fD_compute/run.m workpth to the correct one 
+
 ./bin has the shell scripts that run the Java application to compute NGA flat information
      * You need to add this bin path to your system $PATH in order to use it! 
 

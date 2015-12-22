@@ -2,7 +2,7 @@
 % in command line: matlab -nojvm < run.m
 % 
 clc;
-wkd = '/Users/fengw/work/Project/CyberShake_analysis/utils/fD_compute/';
+wkd = '/Users/fengw/work/Project/ABF_analysis/utils/fD_compute/';
 input_file = [wkd 'input_file'];
 
 % INPUT info
