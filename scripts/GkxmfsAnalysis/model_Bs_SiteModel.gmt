@@ -1,0 +1,548 @@
+#!/bin/bash
+# plot B(s) function or differential B(s) between models
+# specified period (one period)
+eid=$1
+sgtid=$2
+rsid=$3    # rup_scenario_id
+vid=$4     # vel_id
+
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+period=$5  # period
+flag3=$6   # Model Flag
+flag4=$7   # RefModel default is CS
+
+logscale=$8
+sigmaD=$9   # weighting function used in ABF  # format: 0.10_0.10
+plotM=${10}    # LocalModel or Only
+
+wrk=/Users/fengw/work/Project/ABFanalysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Bs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+#add sigma
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 0 -eq 1 ]
+then
+    gmtset PAGE_ORIENTATION portrait 
+
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+fi
+unit=i   # inch
+
+Annot=14
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+
+# labels
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+# Set up iref
+ngas=( CB BA CY AS )    # we want the order 1 0 2 3
+
+Nnga=${#ngas[@]}
+iref=4    # default as CyberShake
+for i in `jot $Nnga 0 $(($Nnga-1))`
+do
+    if [ $flag4 = ${ngas[$i]} ]
+    then
+	iref=$i
+	break
+    fi                                                              
+done
+if [ $flag4 = 'Ref' ]; then
+    iref=5
+fi 
+
+# Set up subplots 
+# =======================================================================================================
+# First block, plot CyberShake only versus the ref, if ref is CyberShake, use the averaged ref of 4 NGA models
+# =======================================================================================================
+N=2
+Nrow=1
+Ncol=2
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/25 | bc -l)
+dy0=0.1
+dx0=0.1
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# ============================
+# colormap and colorbar
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+clr=$mapin/tmp.cpt
+cpt=-Cpolar
+dclr0=10
+clrtick=-Ba1.0f0.1
+cmapname='bwr'
+invert=0 
+
+sigma=0.1
+legs='b(r)'
+legs=''
+max0=2.4
+min0=-2.4
+npoints=21    # each side point numbers
+#python makecpt.py $max0 $min0 0.0 $npoints $sigma $cmapname $clr $logscale
+max0=2.31
+min0=-2.31
+sigma=0.1
+npoints=11
+python makecpt0.py $max0 $min0 0.0 $npoints $sigma $cmapname $clr $logscale
+
+ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs
+
+reg=$(minmax -I.01 $ifile)
+proj=-JM$scale$unit
+
+psnam=$plot2/Model.$period.CyberShake.$flag4.bs
+gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > $tmp_ek.tmp
+if [ $flag4 != 'CyberShake' ]; then
+    iv0=$((iref+3))
+    gawk '{print $1,$2,$7-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+else 
+    #gawk '{print $1,$2,($3+$4+$5+$6)/4}' $tmp_ek.tmp > $tmp_ek
+    gawk '{print $1,$2,$7}' $tmp_ek.tmp > $tmp_ek
+fi 
+cp $tmp_ek $tmp_ek.tmpTest
+
+# check the grid
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+mv $grdfile.2 $grdfile
+grdimage $grdfile $reg $proj -C$clr $begin > $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+echo "-119.65 35.2 16 0 0 LM (a)" | pstext $reg $proj $more >> $psnam.ps 
+
+# add legend 
+if [ 1 -eq 1 ]; then
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.05i 0.14i -Ba1.0f0.2:"b(r)":
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/4.3/1.8/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+rm $grdfile ./legendtext
+#rm $tmp_ek 
+fi 
+
+# basin effect in CyberShake versus basin depth
+if [ 1 -eq 1 ]; then
+    ifile0=$mapin1/Gkxmfs0/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs
+    gawk '{print $1,$2,$4/1000,$5,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile0 > $tmp_ek.tmp
+    if [ $flag4 != 'CyberShake' ]; then 
+	iv0=$(($iref+5)) 
+	gawk '{print $3,$9-$'$iv0'}' $tmp_ek.tmp > $tmp_ek.z10
+	gawk '{print $4,$9-$'$iv0'}' $tmp_ek.tmp > $tmp_ek.z25
+    else 
+	gawk '{print $3,($5+$6+$7+$8)/4}' $tmp_ek.tmp > $tmp_ek.z10
+	gawk '{print $4,($5+$6+$7+$8)/4}' $tmp_ek.tmp > $tmp_ek.z25
+    fi 
+
+    x1=$(echo "$scale+1" | bc -l) 
+    ht=1.6  # Y scale
+    y1=$(echo "$ht+0.7" | bc -l )
+    psxy $tmp_ek.z10 -JX$scale$unit/$ht$unit -R-0.1/1.3/-2.0/2.0 -Sc0.2 -W0.5p/0/0/0 -Ba0.2f0.1:"Z@-1.0@- (km)":/a0.5f0.1:"b(r)":WSne -X$x1$unit -Y$y1$unit $more >> $psnam.ps 
+    echo "-0.15 2.5 16 0 0 LM (b)" | pstext -R -J $more >> $psnam.ps 
+    psxy $tmp_ek.z25 -JX$scale$unit/$ht$unit -R-0.1/7/-2.0/2.0 -Sc0.2 -W0.5p/0/0/0 -Ba1.0f0.5:"Z@-2.5@- (km)":/a0.5f0.1:"b(r)":WSne -Y-$y1$unit $more >> $psnam.ps 
+    echo "-0.1 2.5 16 0 0 LM (c)" | pstext -R -J $more >> $psnam.ps 
+
+#    rm $tmp_ek.tmp $tmp_ek.z10 $tmp_ek.z25
+fi 
+
+ps2eps -q -l -f -R + -r 300 $psnam.ps
+#ps2pdf $psnam.ps $psnam.pdf
+#open $psnam.pdf
+rm $psnam.ps 
+
+# BA-Ref
+psnam=$plot2/Model.$period.BA.Ref.bs
+gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > $tmp_ek.tmp
+if [ $flag4 = 'BA' ]; then
+    # just show BA B(r) 
+    gawk '{print $1,$2,$4}' $tmp_ek.tmp > $tmp_ek
+else 
+    gawk '{print $1,$2,$4-$8}' $tmp_ek.tmp > $tmp_ek
+fi
+
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+mv $grdfile.2 $grdfile
+grdimage $grdfile $reg $proj -C$clr $begin > $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+#echo "-119.25 34.8 16 0 4 LM (a)" | pstext $reg $proj $more >> $psnam.ps 
+
+# add legend 
+if [ 1 -eq 1 ]; then
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.05i 0.14i -Ba1.0f0.2:"b(r)":
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/4.3/1.8/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+rm $grdfile ./legendtext
+#rm $tmp_ek 
+fi 
+
+# add Vs30 
+clr0=$mapin/site_Vs30.cpt
+min0=0.0
+max0=1.0
+gawk '{print $1,$2,$3/1000}' $ifile > $tmp_ek
+dclr=10
+tmpclr=$(echo "$max0-($min0)" | bc -l)
+dclr=$(expr $tmpclr/$dclr | bc -l)
+cpt=-Cjet
+
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr0     
+pscontour $tmp_ek $reg $proj -C$clr0 -W0.5p $more >> $psnam.ps 
+
+ps2eps -q -l -f -R + -r 300 $psnam.ps
+#ps2pdf $psnam.ps $psnam.pdf
+#open $psnam.pdf
+rm $psnam.ps 
+
+# =======================================================================================================
+# Second block, plot all four NGA models with Ref as the reference model or CyberShake as the reference Model
+# and plot the basin depth model and Vs30 model ontop of those b-maps
+# =======================================================================================================
+
+N=$Nnga
+N=3  # other three 
+Nrow=1
+Ncol=3 
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+scale=3
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/25 | bc -l)
+#dy0=0.1
+dx0=0.2
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale-0.1)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[$icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[$icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)    # - 0.5 to make the y look better
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[$icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[$icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+done
+
+proj=-JM$scale$unit
+
+psnam=$plot2/Model.$period.NGAs.$flag4.$plotM.bs
+isub=-1
+for inga in 3 0 2
+do
+    isub=$(($isub+1))
+
+    if [ $iref = 4 ]; then 
+	# CyberShake as reference model
+	iv=$((inga+6))
+	gawk '{print $1,$2,$'$iv'}' $ifile > $tmp_ek
+    else 
+	gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > $tmp_ek.tmp
+	iv=$((inga+3))
+	if [ $iref = $inga ]; then 
+	    gawk '{print $1,$2,$'$iv'}' $tmp_ek.tmp > $tmp_ek
+	else 
+	    iv0=$((iref+3))
+	    gawk '{print $1,$2,$'$iv'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+	fi
+	rm $tmp_ek.tmp
+    fi
+    xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+    triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+    grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+    mv $grdfile.2 $grdfile
+    if [ $isub -eq 0 ]; then
+	grdimage $grdfile $reg $proj ${offset[$isub]} -C$clr $begin > $psnam.ps
+	pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+	
+	# add legend 
+#cat > ./legendtext << DELIM
+#G -0.01i 
+#B $clr 0.05i 0.1i -Ba1.0f0.2
+#G -0.05i 
+#DELIM
+#pslegend ./legendtext -R -J -D-119.33/33.3/4.3/1.2/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+#rm ./legendtext 
+    
+    else
+	grdimage $grdfile $reg $proj ${offset[$isub]} -C$clr $more >> $psnam.ps
+	pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps
+    fi
+    
+    if [ $plotM = 'LocalModel' ]; then 
+	
+	cpt=-Cpolar
+	dclr=10
+	
+	if [ $inga = 0 ]; then 
+	    # Z2.5 
+	    clr0=$mapin/sits_Z25.cpt
+	    min0=0.3
+	    max0=6.0
+	    gawk '{print $1,$2,$5}' $ifile > $tmp_ek
+	elif [ $inga = 2 -o $inga = 3 ]; then 
+	    # Z1.0 
+	    clr0=$mapin/sits_Z10.cpt
+	    min0=-0.1
+	    max0=1.0
+	    gawk '{print $1,$2,$4/1000}' $ifile > $tmp_ek
+	elif [ $inga = 4 ]; then 
+	    # Vs30  (Vs30 effects in AS model) (test purpose or research)
+	    clr0=$mapin/site_Vs30.cpt
+	    min=0.0
+	    max=1.0
+	    gawk '{print $1,$2,$3/1000}' $ifile > $tmp_ek
+	else 
+	    # empty
+	    continue
+	fi 
+	tmpclr=$(echo "$max0-($min0)" | bc -l)
+	dclr=$(expr $tmpclr/$dclr | bc -l)
+	xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+	triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr0     
+	pscontour $tmp_ek $reg $proj -C$clr0 -W0.5p $more >> $psnam.ps 
+    fi 
+
+#texts=( '(a)' '(b)' '(c)' )
+texts=( 'AS08' 'CB08' 'CY08' )
+pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+-117.75 34.8 16 0 0 LM ${texts[$isub]}
+END
+    rm $tmp_ek $grdfile
+
+done 
+
+ps2eps -R + -q -l -f -r 300 $psnam.ps
+
+#ps2pdf $psnam.ps $psnam.pdf
+#open $psnam.pdf
+rm $psnam.ps 
+
+
+
+# =======================================================================================================
+# Plot NGAs-BA and CyberShake-BA together for given period
+# =======================================================================================================
+N=4  # other three 
+Nrow=1
+Ncol=4 
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+scale=2.4
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/25 | bc -l)
+#dy0=0.1
+dx0=0.2
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale-0.1)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[$icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[$icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)    # - 0.5 to make the y look better
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[$icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[$icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+done
+
+proj=-JM$scale$unit
+
+#psnam=$plot2/Model.$period.NGAsCyberShake.$flag4.$plotM.bs
+isub=-1
+texts=( 'AS08' 'CB08' 'CY08' 'CyberShake' )
+for inga in 3 0 2 4
+do 
+    isub=$(($isub+1))
+    tmpT=${texts[$isub]}
+    psnam=$plot2/Model.$period.Target$tmpT.Ref$flag4.$plotM.bs
+    if [ $iref = 4 ]; then 
+	# CyberShake as reference model
+	iv=$((inga+6))
+	gawk '{print $1,$2,$'$iv'}' $ifile > $tmp_ek
+    else 
+	gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > $tmp_ek.tmp
+	iv=$((inga+3))
+	if [ $iref = 1 ] && [ $iref = $inga ]; then 
+	    iv0=8   # just for BA case
+	    gawk '{print $1,$2,$'$iv'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+	else 
+	    iv0=$((iref+3))
+	    gawk '{print $1,$2,$'$iv'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+	fi
+	rm $tmp_ek.tmp
+    fi
+    xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+    triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+    grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+    mv $grdfile.2 $grdfile
+    #if [ $isub -eq 0 ]; then
+	#grdimage $grdfile $reg $proj ${offset[$isub]} -C$clr $begin > $psnam.ps
+	grdimage $grdfile $reg $proj ${offset[$isub]} -C$clr $begin > $psnam.ps
+	pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps
+	
+	# add legend 
+if [ 0 -eq 1 ]; then
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.05i 0.1i -Ba1.0f0.2
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/4.3/1.2/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+rm ./legendtext 
+fi 
+#    else
+#	grdimage $grdfile $reg $proj ${offset[$isub]} -C$clr $more >> $psnam.ps
+#	pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps
+#    fi
+    echo "-118.0 34.8 14 0 0 LM ${texts[$isub]}" | pstext $reg $proj $more >> $psnam.ps 
+    rm $tmp_ek $grdfile
+
+    ps2eps -R + -q -l -f -r 300 $psnam.ps
+    #ps2pdf $psnam.ps $psnam.pdf
+    #open $psnam.pdf
+    rm $psnam.ps 
+
+done 
+
+#ps2eps -R + -q -l -f -r 300 $psnam.ps
+#ps2pdf $psnam.ps $psnam.pdf
+#open $psnam.pdf
+#rm $psnam.ps 
+
+

@@ -1,0 +1,206 @@
+#!/bin/bash
+# Plot Site Local model
+# specified period
+eid=$1
+sgtid=$2
+rsid=$3    # rup_scenario_id
+vid=$4     # vel_id
+
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+period=$5  # specify period
+flag3=$6   # Model Flag
+sigmaD=$7 
+
+# common file locations
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 1 -eq 0 ]
+then
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+    Nrow=3
+    Ncol=2
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+    
+    Nrow=2
+    Ncol=3
+fi
+unit=i   # inch
+
+Annot=14
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+
+# labels
+gmtset LABEL_FONT 4
+gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+# colormap and colorbar
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+clr=$mapin/tmp.cpt
+
+# three plots (subplot setup)
+scale=3
+dx=0.5
+x0=1.0
+scale=$(echo "$width/4" | bc -l)
+xoff=$(echo "$scale+$dx" | bc -l)
+yoff=$(echo "$x0+$scale/2" | bc -l)
+
+# colobar
+tmpx=$(echo "$scale/2" | bc -l)
+tmpy=$(echo "0-$dx/4" | bc -l)
+align=h
+clrbar=-D$tmpx$unit/$tmpy$unit/$scale$unit/0.1$unit$align
+
+#ifile=$mapin1/Gkxmfs/Bs/CyberShake.NGAs.$period.bs
+ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs 
+psnam=$plot0/SiteModel_Vel$vid
+
+gawk '{print $1,$2,$4}' $ifile > $tmp_ek
+reg=$(minmax -I.01 $tmp_ek)
+proj=-JM$scale$unit
+
+fsize=16
+ftype=4
+
+# 1. Vs30 model
+clr=$mapin/site_Vs30.cpt
+dclr=10
+cpt=-Cpolar
+cpt=-Cjet
+min=0.0
+max=1.0
+tmpclr=$(echo "$max-($min)" | bc -l)
+dclr=$(expr $tmpclr/$dclr | bc -l)
+gawk '{print $1,$2,$3/1000}' $ifile > $tmp_ek
+xyz2grd $tmp_ek -I${inc[0]} $reg -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -F -G$grdfile > /dev/null
+grd2cpt $grdfile $cpt -I -S$min/$max/$dclr -L$min/$max > $clr
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+grdimage $grdfile $reg $proj -Y$yoff$unit -X$x0$unit -C$clr $begin > $psnam.ps
+pscoast $reg $proj -Dh -W1p/0/0/0 -Ba1.0f0.5sWNe -A100 -Slightblue -Na $more >> $psnam.ps
+if [ 1 -eq 1 ];then
+    psscale -C$clr $clrbar -Ba0.2f0.05:"Vs@-30@- (km/s)": $more >> $psnam.ps    
+#    psscale -C$clr $clrbar -Ba0.2f0.05 $more >> $psnam.ps    
+#    pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+#-119.3 34.9 $fsize 0 $ftype LM (a)
+#END
+else
+    psscale -C$clr $clrbar -Ba0.2f0.05 $more >> $psnam.ps    
+    pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+-117.9 34.8 $fsize 0 $ftype LM Vs@-30@- (km/s)
+END
+fi
+
+# 2. Z1.0 model
+clr=$mapin/sits_Z10.cpt
+
+# colobar
+tmpx=$(echo "$scale/2" | bc -l)
+tmpy=$(echo "0-$dx/2" | bc -l)
+align=h
+#clrbar=-D$tmpx$unit/$tmpy$unit/$scale$unit/0.2$unit$align
+
+dclr=20
+cpt=-Cpolar
+cpt=-Cjet
+min=-0.1
+max=1.5
+tmpclr=$(echo "$max-($min)" | bc -l)
+dclr=$(expr $tmpclr/$dclr | bc -l)
+gawk '{print $1,$2,$4/1000.}' $ifile > $tmp_ek
+
+xyz2grd $tmp_ek -I${inc[0]} $reg -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -F -G$grdfile > /dev/null
+grd2cpt $grdfile $cpt -S$min/$max/$dclr -L$min/$max > $clr
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+grdimage $grdfile $reg $proj -X$xoff$unit -C$clr $more >> $psnam.ps
+pscoast $reg $proj -Dh -W1p/0/0/0 -Ba1.0f0.5sWNe -A100 -Slightblue -Na $more >> $psnam.ps
+
+if [ 1 -eq 1 ]; then
+    psscale -C$clr $clrbar -Ba0.2f0.1:"Z@-1.0@- (km)": $more >> $psnam.ps 
+#    psscale -C$clr $clrbar -Ba0.2f0.1 $more >> $psnam.ps 
+#    pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+#-119.3 34.9 $fsize 0 $ftype  LM (b)
+#END
+else
+    psscale -C$clr $clrbar -Ba0.2f0.1 $more >> $psnam.ps 
+    pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+-117.9 34.8 $fsize 0 $ftype  LM Z@-1.0@- (km)
+END
+fi
+rm $tmp_ek $grdfile
+
+
+# 3. Z2.5 model
+clr=$mapin/sits_Z25.cpt
+dclr=20
+cpt=-Cpolar
+cpt=-Cjet
+min=-0.1
+max=6.0
+tmpclr=$(echo "$max-($min)" | bc -l)
+dclr=$(expr $tmpclr/$dclr | bc -l)
+gawk '{print $1,$2,$5}' $ifile > $tmp_ek
+
+xyz2grd $tmp_ek -I${inc[0]} $reg -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -F -G$grdfile > /dev/null
+grd2cpt $grdfile $cpt -S$min/$max/$dclr -L$min/$max > $clr
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+grdimage $grdfile $reg $proj -X$xoff$unit -C$clr $more >> $psnam.ps
+pscoast $reg $proj -Dh -W1p/0/0/0 -Ba1.0f0.5sWNe -A100 -Slightblue -Na $more >> $psnam.ps
+if [ 1 -eq 1 ]; then
+    psscale -C$clr $clrbar -Ba1.0f0.5:"Z@-2.5@- (km)": $more >> $psnam.ps 
+    #psscale -C$clr $clrbar -Ba1.0f0.5 $more >> $psnam.ps 
+    #pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+#-119.3 34.9 $fsize 0 $ftype  LM (c)
+#END
+else
+    psscale -C$clr $clrbar -Ba1.0f0.5 $more >> $psnam.ps 
+    pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+-117.9 34.8 $fsize 0 $ftype  LM Z@-2.5@- (km)
+END
+fi
+
+rm $tmp_ek $grdfile
+
+# ps to pdf (display)
+ps2pdf $psnam.ps $psnam.pdf
+ps2eps -l -f -q -r 300 $psnam.ps 
+open $psnam.pdf
+rm $clr
+
+

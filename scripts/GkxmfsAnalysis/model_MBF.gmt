@@ -1,0 +1,141 @@
+#!/bin/bash
+
+eid=35
+sgtid=5
+rsid=3
+vid=1
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+mflag=54
+period=3.00
+sid=10
+
+# common file directory
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$mflag/$prefix
+
+srcfile=$mapin1/Gkxmfs/SourceInfo
+Nsrc=`gawk 'END {print NR}' $srcfile`
+sid1=`gawk '{print $1}' $srcfile`    # this gives a string
+for isrc in `jot $Nsrc 0 $(($Nsrc-1))`
+do
+    field=$(($isrc+1))
+    # this only works when the array read from a file and fields are separted
+    # in the file by some charactors (you can also use BEGIN { FS=" " }, which
+    # is the same as gawk -F " "
+    sids[$isrc]=`echo $sid1 | gawk -F " " '{print $'$field'}'`     # split string
+done
+N=$Nsrc 
+Nsub=$N
+
+width=11.0
+height=8.5
+scale=1.5
+unit=i
+Nrow=4
+Ncol=5
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/25 | bc -l)
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+done
+
+clr=$mapin/tmp.cpt
+
+begin=' -K'
+more='-K -O'
+end='-O'
+
+tmp_ek='./tmp.dks'
+grdfile='./tmp.grd'
+inc=( 0.05 0.005 )
+
+psnam='./tmpps'
+clrtick=-Ba1.0f0.5
+max0=2.3
+min0=-2.3
+sigma=0.1
+nside=11
+#sigma=0.001
+#nside=21   # has to be odd number
+python makecpt0.py $max0 $min0 0.0 $nside $sigma 'bwr' $clr 0
+
+rdxc=$(expr $scale*1.5 | bc -l)$unit
+rdyc=$(expr $scale*1.4 |bc -l)$unit
+lth=$(expr $scale+0.5 | bc)$unit
+#wth=$(expr $scale/30.0 | bc -l )$unit
+wth=0.15$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+
+# plot for all ruptures
+for isrc in `jot $N 0 $(($N-1))`
+do
+    sid=${sids[$isrc]}
+    ifile=$mapin1/Gkxmfs0/Cks_MBF/CyberShake.NGAs.$period.Source$sid.dks
+    reg=$(minmax -I.01 ${ifile})
+    proj=-JM$scale$unit
+    python MapInterpolation.py $ifile $tmp_ek
+
+    xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+    triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+    grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+    mv $grdfile.2 $grdfile
+
+    if [ $isrc = 0 ]; then
+	grdimage $grdfile $reg $proj -C$clr ${offset[$isrc]} $begin > $psnam.ps
+    else 
+	grdimage $grdfile $reg $proj -C$clr ${offset[$isrc]} $more >> $psnam.ps
+    fi
+    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps 
+    rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid 
+    psxy $rupture $reg $proj -m -W2p/0/0/0 $more >> $psnam.ps 
+    if [ $isrc = 0 ]; then 
+	psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+    fi 
+done 
+
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+
+

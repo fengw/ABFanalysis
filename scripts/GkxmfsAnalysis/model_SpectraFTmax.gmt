@@ -1,0 +1,211 @@
+#!/bin/bash
+eid=35
+sgtid=7
+rsid=$1
+vid=$2
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+mflag=$3 
+periods=( 2.00 3.00 5.00 7.00 10.00 )
+cmps=( 1 2 ) 
+
+
+# common file directory
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Excitation$mflag/$prefix
+
+plot0=$wrk/plots/Excitation_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$mflag
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/SpectraFTmax
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# tmp files
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# colormap related
+cpt=-Cpolar
+clr=$mapin/tmp.cpt
+clr1=./cool2warm.cpt
+inc=( 0.05 0.005 )
+dclr=50
+
+# basic GMT default variables (setup)
+Annot=12
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 1
+gmtset LABEL_FONT_SIZE $Annot
+
+# page setup
+gmtset PAGE_ORIENTATION landscape
+width=11.0 
+height=8.5
+begin=' -K'
+more='-K -O'
+end='-O'
+
+# unit
+unit=i   
+
+Ncol=${#periods[@]}
+Nrow=${#cmps[@]} 
+N1=$(echo "$Ncol*$Nrow" | bc -l) 
+
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N1 | bc -l)
+scale=$(echo "sqrt($tmp0)/1.65" | bc -l)
+#scale=2.3
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/10 | bc -l)
+
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+    
+done
+
+# colorbar location
+rdxc=$(expr $scale*0.5 | bc -l)$unit
+rdyc=$(expr -$dy0*0.5 |bc -l)$unit
+lth=$(expr $scale+0.5 | bc)$unit
+wth=$(expr $scale/15.0 | bc -l )$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+
+if [ 1 -eq 0 ]; then 
+    max0=0.35
+    min0=0.0
+    dclr=0.05
+    cpt='-Cseis'
+    cpt='-Cocean'
+    cpt='-Cglobe -I'
+    cpt='-Ctopo'
+    cpt='-Ccool2warm'
+    cpt='-Cnrwc -I'
+    cpt='-Cyellow2red'
+    makecpt $cpt -T$min0/$max0/$dclr > $clr
+    #grd2cpt $grdfile $cpt -I -S$min0/$max0/$dclr -L$min0/$max0 > $clr 
+    clrtick=-Ba0.1f0.05:"Power[m/s]@+2@+":
+else 
+    max0=2.0
+    min0=-2.0
+    clrtick=-Ba1.0f0.5
+    # makecpt.py
+    sigma=0.1   # in log10, it's 0.04, and in ratio: 1.1
+    nside=10
+    python makecpt0.py $max0 $min0 0.0 $nside $sigma bwr $clr 0
+fi 
+
+psnam=$plot2/SpectraFTmax_map_Ts_cmps_vel$vid
+isub=-1
+for icmp in 1 2 
+do 
+    for period in 2.00 3.00 5.00 7.00 10.00
+    #for period in 3.00
+    do 
+	isub=$(expr $isub+1 |bc)
+
+	ifile_tmp=$mapin1/FTmax_average${period}_cmp${icmp}.txt
+	reg=$(minmax -I.01 ${ifile_tmp})
+	proj=-JM$scale$unit
+
+	ifile=$mapin1/FTmax_average${period}_cmp${icmp}.txt
+
+	# Fmax
+	gawk '{print $1,$2,$3}' $ifile > $tmp_ek
+	xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+
+	triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+	mv $grdfile.2 $grdfile
+
+	if [ $isub = 0 ]; then
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isub]} $begin > $psnam.ps 
+	else 
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isub]} $more >> $psnam.ps 
+        fi
+	pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$btl":  -A100 -Na -Slightblue $more >> $psnam.ps
+	if [ $icmp = 1 ]; then 
+	    if [ $period = 2.00 ]; then 
+		echo "-119.3 33.5 16 0 0 LM N35E" | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+		echo "-117.6 34.8 16 0 0 LM $period" | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+	    else 
+		echo "-117.6 34.8 16 0 0 LM $period" | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+	    fi 
+	else 
+	    if [ $period = 2.00 ]; then 
+		echo "-119.3 33.5 16 0 0 LM E35S" | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+	    fi 
+        fi 
+
+    done 
+done 
+
+psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+rm $tmp_ek
+
+
+# show in pdf
+ps2eps -R + -q -l -f -r 300 $psnam.ps
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+
+# clean up
+rm $psnam.ps 

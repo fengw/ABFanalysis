@@ -1,0 +1,227 @@
+#!/bin/bash
+# plot map that only depends on site location 
+# specified period (one period)
+eid=$1
+sgtid=$2
+rsid=$3    # rup_scenario_id
+vid=$4     # vel_id
+
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+flag3=$5   # Model Flag
+sigmaD=$6   # weighting function used in ABF  # format: 0.10_0.10
+
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/SCs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+#add sigma
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 0 -eq 1 ]
+then
+    gmtset PAGE_ORIENTATION portrait 
+
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+fi
+unit=i   # inch
+
+Annot=14
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_PRIMARY 0 
+gmtset ANNOT_FONT_SECONDARY 0 
+
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+
+# labels
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+# Set up subplots 
+periods=( 2.00 3.00 5.00 10.00 )
+texts=( '2.0' '3.0' '5.0' '10.0' )
+N=4
+Nrow=2
+Ncol=4
+
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+scale=2.3
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/10 | bc -l)
+
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+    
+done
+
+# ============================
+# colormap and colorbar
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+clr=$mapin/tmp.cpt
+
+flag0='SCs'   # suffix
+# grd2cpt
+max0=1.8
+min0=0.0
+dclr=0.1
+cpt='-Cocean -I'
+cpt='-Chaxby -I'
+cpt='-Ccopper -I'
+cpt='-Ctopo -I'
+cpt='-Cglobe'
+cpt='-Cnrwc -I'
+cpt='-Cgray -I'
+cpt='-Cyellow2red'
+#clrtick=-Ba0.3f0.1:"@~s@-C@-":
+clrtick=-Ba0.3f0.1
+
+psnam=$plot2/Model.CyberShake.NGAmean.periods.SCs
+isub=-1
+for flag4 in 'CS11' 'NGA-RMS' 
+do 
+    for it in `jot $N 0 $(($N-1))` 
+    do 
+	isub=$(($isub+1))
+	period=${periods[$it]} 
+
+	ifile=$mapin1/Gkxmfs/SCs/Sigma$sigmaD/CyberShake.NGAs.$period.$flag0
+
+	reg=$(minmax -I.01 $ifile)
+	proj=-JM$scale$unit
+
+	if [ $flag4 = 'CS11' ]; then 
+	    gawk '{print $1,$2,$7}' $ifile > $tmp_ek
+	else 
+	    gawk '{print $1,$2,sqrt(($3**2+$4**2+$5**2+$6**2)/4)}' $ifile > $tmp_ek 
+	fi 
+	xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+	triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+	mv $grdfile.2 $grdfile
+	grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr 
+	if [ $isub -eq 0 ]; then
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isub]} $begin > $psnam.ps
+	    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+	else 
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isub]} $more >> $psnam.ps 
+	    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps
+	fi 
+        if [ $flag4 = 'CS11' ];then
+	    echo "-117.75 34.8 16 0 0 LM ${texts[$it]}" | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+	fi 
+
+	if [ $it -eq 0 ]; then 
+	    echo "-119.25 33.6 16 0 0 LM $flag4" | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+	fi 
+
+	if [ $isub -eq 6 ]; then 
+	    rdxc=0$unit
+	    rdyc=-0.2$unit
+	    lth=$(expr $scale+0.5 | bc)$unit
+	    wth=$(expr $scale/30.0 | bc -l )$unit
+	    wth=0.1$unit
+	    align=h
+	    clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+	    psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+	fi 
+
+    done 
+done
+
+ps2eps -q -l -f -R + -r 300 $psnam.ps
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+rm $psnam.ps 
+

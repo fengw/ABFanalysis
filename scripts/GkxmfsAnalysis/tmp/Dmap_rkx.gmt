@@ -1,0 +1,321 @@
+#!/bin/bash
+
+# plot directivity with hypocenters (help to see the point)
+eid=$1
+sgtid=$2
+rsid=$3
+vid=$4
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+period=$5
+flag1=$6   # NGA models (target model)
+flag2=$7   # Dkxs 
+flag3=$8   # mflag (what are plotted depends one the model flag)
+flag4=$9   # Reference model (default is CyberShake)
+sid0=${10}     # Source ID if not 0, then just plot map for the sid0, 0: plot all 
+rid0=${11}
+logscale=${12}   # 0 or 1
+wt=${13}   # add weighting function of dkxs
+sigmaD=${14}  # add weighting funciton half width to control the results
+
+# common file directory
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/$flag2
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# tmp files
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# topography file
+topogrd=$mapin/California.grd
+topogrd_int=$mapin/California_int.grd
+
+# GMT paper and parameter setting
+if [ 0 -eq 1 ]
+then
+    # protrait
+    width=8.5 
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    # landscape
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0 
+    height=8.5
+    begin=' -K'
+    more='-K -O'
+    end='-O'
+fi
+# unit
+unit=i   
+
+# GMT parameters setting
+Annot=16
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 1
+gmtset LABEL_FONT_SIZE $Annot
+
+# compute scale for each hypocenter of each rupture
+scale1=6   # Base map
+
+###############################################
+srcfile=$mapin1/Gkxmfs/SourceRuptureHypoInfo
+Nsrc=`gawk 'END {print NR}' $srcfile`
+sid1=`gawk '{print $1}' $srcfile`    # this gives a string
+Nr1=`gawk '{print $2}' $srcfile`    # this gives a string
+Nh1=`gawk '{print $3}' $srcfile`    # this gives a string
+for isrc in `jot $Nsrc 0 $(($Nsrc-1))`
+do
+    field=$(($isrc+1))
+    # this only works when the array read from a file and fields are separted
+    # in the file by some charactors (you can also use BEGIN { FS=" " }, which
+    # is the same as gawk -F " "
+    sids[$isrc]=`echo $sid1 | gawk -F " " '{print $'$field'}'`     # split string
+    Nrs[$isrc]=`echo $Nr1 | gawk -F " " '{print $'$field'}'`     # split string
+    Nhs[$isrc]=`echo $Nh1 | gawk -F " " '{print $'$field'}'`     # split string
+done
+
+N=$Nsrc 
+
+ngas=( CB BA CY AS )
+Nnga=${#ngas[@]}
+iref=4
+inga=4
+for i in `jot $Nnga 0 $(($Nnga-1))`
+do
+    if [ $flag1 = ${ngas[$i]} ]
+    then
+	inga=$i
+    fi                                                              
+    if [ $flag4 = ${ngas[$i]} ]
+    then
+	iref=$i
+    fi                                                              
+done
+
+if [ $flag4 = 'Ref' ]; then
+    iref=5 
+fi 
+
+# color map
+inc=( 0.05 0.005 )   #inc_x, inc_y (make them same)
+clr=$mapin/tmp.cpt
+clrtick=-Ba1.0f0.5
+max0=2.31
+min0=-2.31
+
+# makecpt.py
+sigma=0.1
+nside=10
+python makecpt.py $max0 $min0 0.0 $nside $sigma bwr $clr $logscale
+
+# For dkxs (plot IDP as contour on it)
+clr0=$mapin/mapIDP.cpt
+cpt=-Cpolar
+dclr=10
+min00=-0.5
+max00=5.0
+tmpclr=$(echo "$max00-($min00)" | bc -l)
+dclr=$(expr $tmpclr/$dclr | bc -l)
+
+# Loop over all sources
+dec=2
+for irup in `jot $Nsrc 0 $((Nsrc-1))`
+do 
+    Nr=${Nrs[$irup]}
+    Nh=${Nhs[$irup]}
+    sid=${sids[$irup]}
+
+    if [ $sid -eq $sid0 ] && [ $sid0 -ne 0 ]; then 
+	echo 'Map for specified source' $sid0
+	
+	# 1. plot base map (rupture and hypocenter locations) 
+	# Source dependent region define
+	reg1=-R-121/-115/32.5/36.5
+	proj1=-JM$scale1$unit
+    
+	rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid   # generated in erf_rupture.py
+	
+	# hypocenter location info
+	hypo=$mapin/rups_map/cybershk.$eid.$rsid.$sid.hypo
+	hypo0=$hypo.pstext  
+	hypo1=$hypo.psxy   # hypocenter locations
+	
+	gawk '{print $1,$2}' $hypo > $hypo1
+	old_IFS=$IFS
+	IFS=$'\n'
+	hypo0_lines=($(cat $hypo0))
+	hypo1_lines=($(cat $hypo1))
+	IFS=$old_IFS 
+	
+	# add hypocenter location and index (one by one)
+	if [[ $sid -eq 115 || $sid -eq 90 ]]
+	then
+	    gawk '{print $1+0.05,$2+0.05,$3+4,$4+40,$5,$6*0.5,'$Nh'-$7}' $hypo > $hypo0
+	else
+	    gawk '{print $1+0.05,$2+0.05,$3+4,$4+40,$5,$6*0.5,$7-1}' $hypo > $hypo0
+	fi
+
+	plots=$plot2/$sid
+	if [ ! -d $plots ]; then
+	    mkdir $plots
+	fi
+	
+	Nsub=$Nh
+
+	# colorbar for Dkxs
+	#rdxc=$(expr $scale2*1.5 | bc -l)$unit
+	#rdyc=$(expr $scale2+$dy0*3 |bc -l)$unit
+	#lth=$(expr $scale2+0.5 | bc)$unit
+	#wth=0.1$unit
+	#align=h
+	#clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+	flag0='dkxs'
+	flag00='Ih'
+	flag000='dkxr'
+
+	scale2=1.5 
+	ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.$flag00
+	reg2=$(minmax -I.01 ${ifile_ek}0.$flag0)
+	proj2=-JM$scale2$unit
+
+	offset_x0=1.0
+	offset_y0=1.0
+	
+	# set offset for each hypocenter (output files)
+	arrow_file=$mapin/arrow_file
+	offset_file=$mapin/offset_file
+
+	python HypoLoc.py $hypo1 $rupture $offset_x0 $offset_y0 $reg1 $scale1$unit $scale2$unit $arrow_file $offset_file
+	
+	old_IFS=$IFS
+	IFS=$'\n'
+	arrow_lines=($(cat $arrow_file))
+	offset_lines=($(cat $offset_file))
+	IFS=$old_IFS 
+	
+	#rm $arrow_file $offset_file
+	
+	Nsub1=$(($Nsub/$dec+1))
+	for isub0 in `jot $Nsub1 1 $Nsub`
+	do
+	    psnam=$plots/Model.$period.$sid.$flag4.$flag1.$flag0.$wt.$isub0
+	    grdimage $topogrd $reg1 $proj1 -C$mapin/topo.cpt -X$offset_x0$unit -Y$offset_y0$unit -Ba1.0f0.5/a1.0f0.5WNse $begin > $psnam.ps
+	    pscoast $reg1 $proj1 -Dh -W1p/0/0/0 -A100 -Slightblue -Na $more >> $psnam.ps
+
+	    gawk '{print $1,$2}' $hypo > $hypo1
+	    psxy $rupture $reg1 $proj1 -m -W2p/0/0/0 $more >> $psnam.ps
+
+	    # plot CyberShake sampling region
+	    psxy $reg1 $proj1 -W2p/51/51/51 $more << END >> $psnam.ps
+-116.843967435 34.1729941997
+-118.732159837 35.0580150578
+-119.336999976 34.1500010364
+-117.463026294 33.2739695854
+-116.843967435 34.1729941997
+END
+	    isub01=$(($isub0/$dec+1))
+            for isub in `jot $isub01 0 $(($isub0-1))`
+	    do 
+		iv=$isub
+
+		#if [[ $sid -eq 115 || $sid -eq 90 ]]
+		#then 
+		#    iv=$(echo "${Nhs[$irup]}-$iv-1" | bc )
+		#fi
+		
+		# plot current hypocenter and all previous hypocenters
+		echo ${hypo1_lines[$iv]} | psxy $reg1 $proj1 -Sa0.3 -G255/0/0 $more >> $psnam.ps
+		
+		# plot arrow for each hypocenter 
+		echo ${arrow_lines[$iv]} | psxy $reg1 $proj1 -Sv0.07/0.2/0.15 -G0/0/0 $more >> $psnam.ps 
+		
+		if [ 0 -eq 0 ]; then
+		    factor=0.434  # log10(exp(1)) = 0.434 convert ln to log
+		    if [ $iref -eq 4 ];then
+			iv1=$(($inga+3+8*$wt))
+			if [ $logscale -eq 1 ]; then
+			    gawk '{print $1,$2,exp($'$iv1')}' $ifile_ek$iv.$flag0 > $tmp_ek
+			else
+			    gawk '{print $1,$2,$'$iv1'}' $ifile_ek$iv.$flag0 > $tmp_ek 
+			fi 
+		    else
+			# compute using different reference models
+			gawk '{print $1,$2,$7-$3,$7-$4,$7-$5,$7-$6,$7,$7-$8}' $ifile_ek$iv.$flag0 > $tmp_ek.tmp
+			iv0=$((iref+3+8*$wt))
+			iv1=$((inga+3+8*$wt))
+			if [ $logscale -eq 1 ]; then
+			    if [ $iref = $inga ]; then
+				gawk '{print $1,$2,exp($'$iv1')}' $tmp_ek.tmp > $tmp_ek
+			    else
+				gawk '{print $1,$2,exp($'$iv1'-$'$iv0')}' $tmp_ek.tmp > $tmp_ek
+			    fi 
+			else 
+			    if [ $iref = $inga ]; then
+				gawk '{print $1,$2,$'$iv1'}' $tmp_ek.tmp > $tmp_ek
+			    else
+				gawk '{print $1,$2,$'$iv1'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+			    fi
+			fi  
+			rm $tmp_ek.tmp
+		    fi 
+		    
+		    xyz2grd $tmp_ek $reg2 -I${inc[0]} -F -G$grdfile
+		    triangulate $tmp_ek $reg2 -I${inc[1]} -G$grdfile > /dev/null
+		    grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+		    mv $grdfile.2 $grdfile
+		    
+		    grdimage $grdfile $reg2 $proj2 -C$clr ${offset_lines[$iv]} $more >> $psnam.ps
+		    rm $grdfile
+		fi
+	    done 
+
+	    # show in pdf
+	    ps2eps -q -l -f -r 300 $psnam.ps
+	    ps2pdf $psnam.ps $psnam.pdf
+	    #open $psnam.pdf
+	
+	done
+	break
+
+    else
+	# Plot all sources (slow)
+        echo 'ks_ms type map for Source' $sid
+	# just copy the above block without break
+
+    fi
+
+done    #loop over ruptures
+
+rm $tmp_ek

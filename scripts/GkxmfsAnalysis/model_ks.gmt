@@ -1,0 +1,483 @@
+#!/bin/bash
+# plot (k,s) type of plot for all ruptures and plot them on one map
+eid=$1
+sgtid=$2
+rsid=$3   # rup_scenario_id
+vid=$4    # vel_id
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+period=$5
+flag1=$6   # NGA models 
+flag2=$7   # Cks, SDks, SFks, SEks (generally, ks-type plot
+flag3=$8   # Model flag
+flag4=$9   # RefModel default is CyberShake  (for SDks, SFks, SEks, this just could be CyberShake)
+
+sigmaD=${10}
+sid0=${11}     # =0, plot all source; !=0 one source 
+
+# common file locations
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/$flag2
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# add sigma
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 1 -eq 0 ] && [ $sid0 = 0 ]
+then
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+    rot=''
+    #rot='-R +'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+    rot='-R +'
+    #rot=''
+fi
+unit=i   # inch
+
+###############################################
+ngas=( CB BA CY AS )
+Nnga=${#ngas[@]}
+
+iref=4
+inga=4
+for i in `jot $Nnga 0 $(($Nnga-1))`
+do
+    if [ $flag1 = ${ngas[$i]} ]
+    then
+	inga=$i
+    fi                                                              
+    if [ $flag4 = ${ngas[$i]} ]
+    then
+	iref=$i
+    fi                                                              
+done
+if [ $flag4 = 'Ref' ]; then
+    iref=5
+fi 
+if [ $flag1 = 'Ref' ]; then
+    inga=5
+fi 
+
+if [ $sid0 = 0 ]; then 
+    srcfile=$mapin1/Gkxmfs/SourceInfo
+    Nsrc=`gawk 'END {print NR}' $srcfile`
+    sid1=`gawk '{print $1}' $srcfile`    # this gives a string
+    for isrc in `jot $Nsrc 0 $(($Nsrc-1))`
+    do
+	field=$(($isrc+1))
+	# this only works when the array read from a file and fields are separted
+	# in the file by some charactors (you can also use BEGIN { FS=" " }, which
+	# is the same as gawk -F " "
+	sids[$isrc]=`echo $sid1 | gawk -F " " '{print $'$field'}'`     # split string
+    done
+    N=$Nsrc 
+    Nsub=$N
+
+    # sort sids 
+    sids_tmp=( $(
+	for el in "${sids[@]}"
+	do 
+	    echo "$el"
+	done | sort -g) )
+    # replace
+    for isrc in `jot $Nsrc 0 $(($Nsrc-1))`
+    do
+	sids[$isrc]=${sids_tmp[$isrc]}
+    done
+
+else 
+    # select sources to show the C-map and make your point
+    sids=( $sid0 )
+    N=1
+    Nsub=4    # Cks of Target, Cks of Reference, cks of residual  
+fi 
+
+# color map
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+
+clr=$mapin/tmp.cpt
+logscale=0
+if [ $flag2 = 'Cks' ]; then
+    flag0='cks'
+    clrtick=-Ba1.0f0.5
+    max0=2.31
+    min0=-2.31
+    
+    # makecpt.py
+    sigma=0.23  # in log10, it's 0.1, log(x) = log10(x)*log(10) = log10(x) * 2.30; and in ratio: 1.25
+    sigma=0.34  # in log10, it's 0.15, ratio: 1.4
+    sigma=0.1   # in log10, it's 0.04, and in ratio: 1.1
+    nside=11
+    python makecpt0.py $max0 $min0 0.0 $nside $sigma bwr $clr $logscale
+
+elif [ $flag2 = 'Cdks' ]; then
+    flag0='cdks'
+    clrtick=-Ba1.0f0.5
+    max0=2.31
+    min0=-2.31
+    
+    # makecpt.py
+    sigma=0.1
+    nside=11
+    python makecpt.py $max0 $min0 0.0 $nside $sigma bwr $clr $logscale
+
+elif [ $flag2 = 'Eks' ]; then 
+    flag0='eks'
+    clr=$mapin/tmp.cpt
+    flag0='eks'
+    clrtick=-Ba1.0f0.5
+    max0=0.0
+    min0=-6.0
+    dclr=0.1
+    cpt='-Cgray -I'
+    cpt='-Cyellow2red'
+    
+    #sigma=0.1   # in log10, it's 0.04, and in ratio: 1.1
+    #nside=11 
+    #python makecpt.py $max0 $min0 0.0 $nside $sigma bwr $clr $logscale
+
+elif [ $flag2 = 'SDks' ]; then
+    flag0='Sdks'   # suffix
+    # grd2cpt
+    max0=0.8
+    min0=0.0
+    dclr=0.1
+    cpt='-Cocean -I'
+    cpt='-Chaxby -I'
+    cpt='-Ccopper -I'
+    cpt='-Ctopo -I'
+    cpt='-Cglobe'
+    cpt='-Cnrwc -I'
+    cpt='-Cgray -I'
+    cpt='-Cyellow2red'
+    clrtick=-Ba0.2f0.1
+    
+    #nside=10 
+    #sigma=0.001
+    #python makecpt.py $max0 $min0 None $nside $sigma wrb $clr $logscale
+
+elif [ $flag2 = 'SEks' ]; then
+    flag0='Seks'   # suffix
+    # grd2cpt
+    max0=0.8
+    min0=0.0
+    dclr=0.1
+    cpt='-Cocean -I'
+    cpt='-Cglobe'
+    cpt='-Cgray -I'
+    cpt='-Cyellow2red'
+    clrtick=-Ba0.2f0.1
+
+elif [ $flag2 = 'SFks' ]; then
+    flag0='Sfks'   # suffix
+    # grd2cpt
+    max0=0.8
+    min0=0.0
+    dclr=0.1
+    cpt='-Cglobe -I'
+    cpt='-Cyellow2red'
+    clrtick=-Ba0.5f0.2
+fi 
+
+# compute scale
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$Nsub | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+
+if [ $sid0 = 0 ]; then
+    # compute Ncol
+    Ncol=$(expr $width/$scale | bc -l)
+    Ncol=${Ncol/\.*}  # float to int
+
+    #len=$(($N+1))
+    len=$Nsub
+    Nrow=$(echo "$len/$Ncol" | bc)
+    if [ $(expr $len % $Ncol) -ne 0 ]
+    then
+	Nrow=$(($Nrow+1))
+    fi
+    Nrow=4
+    Ncol=5
+else
+    Nrow=1
+    Ncol=3
+fi 
+
+Annot=$(echo "20/$Ncol+1" | bc)
+Annot=14
+gmtset BASEMAP_TYPE plain
+
+gmtset ANNOT_FONT_PRIMARY 0
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SECONDARY 0
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 14
+gmtset HEADER_OFFSET 0.05c 
+
+# labels
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE $Annot
+gmtset LABEL_OFFSET 0.01c    # for x,y,and colorbar label offset
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/25 | bc -l)
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+done
+
+# colorbara
+rdxc=$(expr $scale/2 | bc -l)$unit
+rdyc=$(expr $scale+$dy0*4 |bc -l)$unit
+lth=$(expr $scale+0.5 | bc)$unit
+wth=$(expr $scale/30.0 | bc -l )$unit
+wth=0.1$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+# ============================
+
+sid=${sids[0]}
+if [ $flag2 = 'SFks' ]; then 
+    ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.$flag0
+else 
+    ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/CyberShake.NGAs.$period.Source$sid.$flag0
+fi 
+reg=$(minmax -I.01 $ifile_ek)
+proj=-JM$scale$unit
+psnam=$plot2/Model.$period.$flag4.$flag1.$flag0.SelectSource$sid0
+
+if [ $sid0 = 0 ]; then 
+
+    # plot for all ruptures
+    for isrc in `jot $N 0 $(($N-1))`
+    do
+	sid=${sids[$isrc]}
+	if [ $flag2 = 'SFks' ]; then 
+	    ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.$flag0
+	else 
+	    ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/CyberShake.NGAs.$period.Source$sid.$flag0
+	fi 
+	# source information
+	rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid
+        downdip=$mapin/rups_map/cybershk.$eid.3.$sid.downdip 
+
+	if [ $inga -eq 4 ];then
+	    if [ $flag2 = 'SDks' ] || [ $flag2 = 'SEks' ]; then
+		iv1=$(($iref+3))
+	    else
+		iv1=$(($iref+6))
+	    fi 
+	    if [ $flag2 = 'SFks' ]; then 
+		iv1=3
+	    fi 
+	    gawk '{print $1,$2,$'$iv1'}' $ifile_ek > $tmp_ek
+	else
+	    # This works just for Cks, not for SDks, SFks, SEks (standard deviations)
+	    # compute using different reference models
+	    gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile_ek > $tmp_ek.tmp
+	    iv0=$((iref+3))
+	    iv1=$((inga+3))
+	    if [ $iref = $inga ]; then 
+		gawk '{print $1,$2,$'$iv1'}' $tmp_ek.tmp > $tmp_ek
+	    else 
+		gawk '{print $1,$2,$'$iv1'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+	    fi
+	    rm $tmp_ek.tmp
+	fi 
+
+	xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+	if [ $flag2 = 'SDks' ] || [ $flag2 = 'SEks' ] || [ $flag2 = 'SFks' ] || [ $flag2 = 'Eks' ]; then
+	    grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr 
+	    gmtset COLOR_NAN white
+	fi   
+	triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+	mv $grdfile.2 $grdfile
+	
+	if [ $isrc -eq 0 ]
+	then
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isrc]} $begin > $psnam.ps
+	    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+	    #pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1SWne -A100 -Na -Swhite $more >> $psnam.ps
+	    #psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+	else
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isrc]} $more >> $psnam.ps
+	    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba0.5f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps
+	    #pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba0.5f0.1swne -A100 -Na -Swhite $more >> $psnam.ps
+	fi
+	#pscontour $tmp_ek $reg $proj -C$clr -W0.5p $more >> $psnam.ps 
+
+
+	if [ $isrc -eq $((N-3)) ]; then 
+	    rdxc=$(expr $scale/2 | bc -l)$unit
+	    rdyc=-0.2$unit
+	    lth=$(expr $scale+0.5 | bc)$unit
+	    wth=$(expr $scale/30.0 | bc -l )$unit
+	    wth=0.1$unit
+	    align=h
+	    clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+	    psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+	fi 
+
+
+	# plot distance contour for each source
+	if [ 0 -eq 1 ];then 
+	    # plot distance Rrup when C for NGA without reference models 
+	    ivR=4   # Rrup 
+	    max00=150
+	    min00=0
+	    clr0=$mapin/mapRrup.ctp
+	    gawk '{print $1,$2,$'$ivR'}' $ifile_ek > $tmp_ek 
+	    xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+	    triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	    grd2cpt $grdfile $cpt -S$min00/$max00/10 -L$min00/$max00 > $clr0     
+	    pscontour $tmp_ek $reg $proj  -C$clr0 -W0.5p/0/0/0 $more >> $psnam.ps 
+	    rm $clr0
+	fi 
+	echo "-119.3 33.6 16 0 0 LM $sid" | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+	psxy $rupture $reg $proj -m -W2p/0/0/0 $more >> $psnam.ps 
+	psxy $downdip $reg $proj -M -W2p/0/0/0/,- $more >> $psnam.ps 
+	rm $tmp_ek $grdfile
+    done 
+
+else 
+    # plot only one source for illustration
+    sid=${sids[0]}
+    ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/CyberShake.NGAs.$period.Source$sid.$flag0
+    
+    # source information
+    rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid
+    downdip=$mapin/rups_map/cybershk.$eid.$rsid.$sid.downdip
+    
+    # This works just for Cks, not for SDks, SFks, SEks (standard deviations)
+    # compute using different reference models
+    gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile_ek > $tmp_ek.tmp
+    iv0=$((iref+3))
+    iv1=$((inga+3))
+    gawk '{print $1,$2,$'$iv1',$'$iv0',$'$iv1'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek.tmp1
+    rm $tmp_ek.tmp 
+    sid=${sids[0]}
+    for icol in 3 4 5 
+    do
+	isub=$((icol-3))
+	gawk '{print $1,$2,$'$icol'}' $tmp_ek.tmp1 > $tmp_ek
+	xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+	triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+	mv $grdfile.2 $grdfile
+
+	if [ $isub = 0 ]; then
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isub]} $begin > $psnam.ps
+	    #pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1SWne:.'Target': -A100 -Na -Slightblue $more >> $psnam.ps
+	    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1SWne -A100 -Na -Slightblue $more >> $psnam.ps
+	    #echo "-117.3 34.8 16 0 4 LM $sid" | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+	    if [ 1 = 1 ]; then
+	    cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.05i 0.1i -Ba1.0f0.2
+G -0.05i 
+DELIM
+	    pslegend ./legendtext -R -J -D-119.33/33.3/4.0/1.2/LB -Gwhite -F -L2.25 $more >> $psnam.ps 
+	    rm ./legendtext
+	    fi 
+	else
+	    grdimage $grdfile $reg $proj -C$clr ${offset[$isub]} $more >> $psnam.ps
+	    if [ $isub = 1 ]; then
+		#pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba0.5f0.1swne:.'Reference': -A100 -Na -Slightblue $more >> $psnam.ps 
+		pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba0.5f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps 
+	    else
+		#pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba0.5f0.1swne:.'Residual': -A100 -Na -Slightblue $more >> $psnam.ps 
+		pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba0.5f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps 
+	    fi 
+
+	fi
+	psxy $rupture $reg $proj -m -W2p/0/0/0 $more >> $psnam.ps 
+	psxy $downdip $reg $proj -M -W2p/0/0/0/,- $more >> $psnam.ps 
+	rm $tmp_ek $grdfile
+    done
+fi 
+
+ps2eps -r 300 $rot -f -q -l $psnam.ps 
+convert -density 300 $psnam.eps -quality 100 $psnam.jpg 
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf

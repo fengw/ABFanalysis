@@ -1,0 +1,270 @@
+#!/bin/bash
+# plot b(r) of CS-Ref and CS-BA to show that CyberShake capture the Vs30 effects (linear)
+eid=$1
+sgtid=$2
+rsid=$3    # rup_scenario_id
+vid=$4     # vel_id
+
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+period=$5  # period
+flag3=$6   # Model Flag
+logscale=$7
+sigmaD=${8}   # weighting function used in ABF  # format: 0.20
+
+# common file locations
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Bs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 1 -eq 0 ]
+then
+    gmtset PAGE_ORIENTATION portrait
+    width=8.5  # for portrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+    
+fi
+unit=i   # inch
+
+Annot=14
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+
+# labels
+gmtset LABEL_FONT 4
+gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+# compute scale
+# Targets:
+
+N=3
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+scale=3
+Ncol=3 
+Nrow=1
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/10 | bc -l)
+
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[$icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[$icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[$icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[$icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+done
+
+# colorbar
+rdxc=$(expr $scale/2 | bc -l)$unit
+rdyc=$(expr $scale+$dy0*3 |bc -l)$unit
+lth=$(expr $scale+0.5 | bc)$unit
+#wth=$(expr $scale/30.0 | bc -l )$unit
+wth=0.1$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+# ============================
+
+# colormap and colorbar
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+clr=$mapin/tmp.cpt
+cpt=-Cpolar
+dclr0=10
+clrtick=-Ba1.0f0.1
+cmapname='bwr'
+invert=0 
+
+sigma=0.1
+legs='b(r)'
+max0=2.4
+min0=-2.4
+npoints=10    # each side point numbers
+#python makecpt.py $max0 $min0 $npoints $cmapname $clr $invert $logscale    # 0 is invert
+python makecpt.py $max0 $min0 0.0 $npoints $sigma $cmapname $clr $logscale
+
+ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs 
+
+reg=$(minmax -I.01 $ifile)
+proj=-JM$scale$unit
+
+psnam=$plot2/Model.$period.NGAs.SiteEffects.CyberShake.BA.bs
+
+gawk '{print $1,$2,$3, $10-$7,$10,$10-$11}' $ifile > $tmp_ek.tmp
+if [ $logscale -eq 1 ]; then
+    gawk '{print $1,$2,$3,exp($4-$6), exp($5-$6)}' $tmp_ek.tmp > $tmp_ek.0
+else
+    gawk '{print $1,$2,$3, $4-$6,$5-$6}' $tmp_ek.tmp > $tmp_ek.0
+fi 
+# lon,lat,vs30,BA-Ref,CS-Ref
+rm $tmp_ek.tmp
+
+# Plot BA-Ref with Vs30
+gawk '{print $1,$2,$4}' $tmp_ek.0 > $tmp_ek.1
+xyz2grd $tmp_ek.1 $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek.1 $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+mv $grdfile.2 $grdfile
+grdimage $grdfile $reg $proj ${offset[0]} -C$clr $begin > $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+
+# add legend ( a color bar, before you add it you should generate a colormap file depend on the file )
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.05i 0.14i -Ba1.0f0.2
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/4.3/1.2/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+
+# plot Vs30 contour
+clr0=$mapin/sits_Vs30.cpt
+cpt=-Cpolar
+dclr=10
+min0=0.0
+max0=1.0
+tmpclr=$(echo "$max0-($min0)" | bc -l)
+dclr=$(expr $tmpclr/$dclr | bc -l)
+gawk '{print $1,$2,$3/1000}' $tmp_ek.0 > $tmp_ek
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr0
+pscontour $tmp_ek $reg $proj -C$clr0 -W0.5p $more >> $psnam.ps
+
+pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+-119.25 34.8 16 0 4 LM (a)
+END
+
+# Plot CS-Ref with Vs30
+gawk '{print $1,$2,$5}' $tmp_ek.0 > $tmp_ek.2
+xyz2grd $tmp_ek.2 $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek.2 $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+grdimage $grdfile $reg $proj ${offset[1]} -C$clr $more >> $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps
+
+# plot Vs30 contour
+# use the same configuration as above
+pscontour $tmp_ek $reg $proj -C$clr0 -W0.5p $more >> $psnam.ps
+
+pstext $reg $proj -G0/0/0 $more << END >> $psnam.ps
+-119.25 34.8 16 0 4 LM (b)
+END
+
+# plot scatters 
+gawk '{print $3/1000,$4}' $tmp_ek.0 > $tmp_ek.2
+psxy $tmp_ek.2 -JX$scale$unit/2.55i -R0.15/0.9/-1.0/1.5 -Sc0.1 -W0.5p/0/0/255 -Ba0.2f0.1:"V@-S30@- (km/s)":/a0.5f0.1:"b(r)":wSnE ${offset[2]} $more >> $psnam.ps 
+
+gawk '{print $3/1000,$5}' $tmp_ek.0 > $tmp_ek.1
+psxy $tmp_ek.1 -J -R -Sc0.1 -W0.5p/255/0/0 -B $more >> $psnam.ps 
+
+# add legend ( for symbol, very powerful )
+cat > ./legendtext << DELIM
+G -0.05i 
+S 0.1 c 0.06i - 0.25p/255/0/0 0.3i CSHM
+S 0.1 c 0.06i - 0.25p/0/0/255 0.3i BA08
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D0.55/1.0/3.45/1.2/LB -F -L1.25 $more >> $psnam.ps 
+
+pstext -R -J -G0/0/0 $more << END >> $psnam.ps
+0.18 1.2 16 0 4 LM (c)
+END
+
+
+ps2eps -q -l -f -R + -r 300 $psnam.ps
+
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+
+# clear up
+rm $psnam.ps ./legendtext 

@@ -1,0 +1,562 @@
+#!/bin/bash
+# plot original ek(x,s) for all ruptures
+eid=$1
+sgtid=$2
+rsid=$3
+vid=$4
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+period=$5
+flag1=$6   # NGA models
+flag2=$7   # Dkxs, Ekms; Ekxms, SEkxs, SFkxms, IDP, fD
+flag3=$8   # mflag (what are plotted depends one the model flag)
+flag4=$9   # Reference model (default is CyberShake)
+#echo $flag3
+sid0=${10}     # Source ID if not 0, then just plot map for the sid0, 0: plot all 
+
+if [ $flag2 = 'SFkxms' ] || [ $flag2 = 'Ekxms' ]; then
+    # specify rupture index first for this two cases
+    rid0=${11}
+fi
+
+logscale=${12}   # 0 or 1
+sigmaD=${13}  # add weighting funciton half width to control the results
+
+# common file directory
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/$flag2
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# add sigma
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+
+# tmp files
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+if [ 1 -eq 1 ]
+then
+    # protrait
+    width=8.5 
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+    rotation=''
+else
+    # landscape
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0 
+    height=8.5
+    begin=' -K'
+    more='-K -O'
+    end='-O'
+    rotation='-R +'
+fi
+# unit
+unit=i   
+gmtset BASEMAP_TYPE plain 
+
+###############################################
+srcfile=$mapin1/Gkxmfs/SourceRuptureHypoInfo
+Nsrc=`gawk 'END {print NR}' $srcfile`
+sid1=`gawk '{print $1}' $srcfile`    # this gives a string
+Nr1=`gawk '{print $2}' $srcfile`    # this gives a string
+Nh1=`gawk '{print $3}' $srcfile`    # this gives a string
+for isrc in `jot $Nsrc 0 $(($Nsrc-1))`
+do
+    field=$(($isrc+1))
+    # this only works when the array read from a file and fields are separted
+    # in the file by some charactors (you can also use BEGIN { FS=" " }, which
+    # is the same as gawk -F " "
+    sids[$isrc]=`echo $sid1 | gawk -F " " '{print $'$field'}'`     # split string
+    Nrs[$isrc]=`echo $Nr1 | gawk -F " " '{print $'$field'}'`     # split string
+    Nhs[$isrc]=`echo $Nh1 | gawk -F " " '{print $'$field'}'`     # split string
+done
+
+N=$Nsrc 
+
+ngas=( CB BA CY AS )
+Nnga=${#ngas[@]}
+iref=4
+inga=4
+for i in `jot $Nnga 0 $(($Nnga-1))`
+do
+    if [ $flag1 = ${ngas[$i]} ]
+    then
+	inga=$i
+    fi                                                              
+    if [ $flag4 = ${ngas[$i]} ]
+    then
+	iref=$i
+    fi                                                              
+done
+
+if [ $flag4 = 'Ref' ]; then
+    iref=5 
+fi 
+
+# color map
+inc=( 0.05 0.005 )   #inc_x, inc_y (make them same)
+
+clr=$mapin/tmp.cpt
+
+if [ $flag2 = 'Dkxs' ] || [ $flag2 = 'Ekxms' ] || [ $flag2 = 'Ekms' ]; then
+    if [ $inga -ne 4 ];then 
+	max0=0.5
+	min0=-0.5
+	clrtick='-Ba0.2f0.1'
+    else 
+	max0=2.31
+	min0=-2.31
+	clrtick='-Ba1.0f0.5'
+	#max0=1.0
+	#min0=-1.0
+	#clrtick='-Ba0.2f0.1'
+    fi 
+
+    # makecpt.py
+    sigma=0.1
+    nside=11
+    python makecpt0.py $max0 $min0 0.0 $nside $sigma b2r $clr $logscale
+
+    #Nclr=$(echo "$nside*2" | bc -l)
+    #matlab -nojvm -r "makecpt($max0,$min0,$Nclr,'$clr','bwr'); exit"
+    
+    # For dkxs (plot IDP as contour on it)
+    clr0=$mapin/mapIDP.cpt
+    cpt=-Cpolar
+    
+    # IDP
+    #dclr=10
+    #min00=-0.5
+    #max00=5.0
+    
+    # fD (normalized)
+    dclr=50
+    min00=-0.5
+    max00=0.5
+    tmpclr=$(echo "$max00-($min00)" | bc -l)
+    dclr=$(expr $tmpclr/$dclr | bc -l)
+
+
+elif [ $flag2 = 'SEkxs' ] || [ $flag2 = 'SFkxms' ]; then
+    # grd2cpt
+    dclr=0.1
+    cpt='-Cglobe -I'
+    max0=1.0
+    min0=0.0
+    clrtick=-Ba0.3f0.1
+ 
+elif [ $flag2 = 'IDP' ]; then
+    
+    cpt='-Cpolar'
+    dclr=10
+    min0=0.0
+    max0=5.0
+    tmpclr=$(echo "$max0-($min0)" | bc -l)
+    dclr=$(expr $tmpclr/$dclr | bc -l)
+    clrtick=-Ba1.0f0.5
+
+elif [ $flag2 == 'fD' ]; then
+
+    dclr=10
+    min0=-2.31
+    max0=2.31
+    tmpclr=$(echo "$max0-($min0)" | bc -l)
+    dclr=$(expr $tmpclr/$dclr | bc -l)
+    clrtick=-Ba1.0f0.5
+    
+    # makecpt.py
+    sigma=0.001
+    nside=21
+    python makecpt.py $max0 $min0 0.0 $nside $sigma bwr $clr 0
+fi
+
+
+for irup in `jot $Nsrc 0 $((Nsrc-1))`
+do 
+
+    Nr=${Nrs[$irup]}
+    Nh=${Nhs[$irup]}
+    sid=${sids[$irup]}
+
+    if [ $sid -eq $sid0 ] && [ $sid0 -ne 0 ]; then 
+	# 
+	echo 'Map for specified source' $sid0
+	if [ $flag2 = 'Dkxs' ] || [ $flag2 = 'IDP' ] || [ $flag2 = 'fD' ]; then
+	    Nsub=$Nh
+	    flag0='dkxs'
+	    flag00='Ih'
+	    flag000='dkxr'
+	    if [ $flag2 = 'IDP' ]; then
+		flag000='IDP'
+	    fi 
+	    if [ $flag2 = 'fD' ]; then
+		flag000='fD'
+	    fi 
+	elif [ $flag2 = 'Ekms' ]; then
+	    Nsub=$Nr
+	    flag0='ekms'
+	    flag00='Mw'
+	elif [ $flag2 = 'SEkxs' ]; then
+	    Nsub=$Nh
+	    flag0='Sekxs'
+	    flag00='Ih'
+	elif [ $flag2 = 'SFkxms' ]; then
+	    Nsub=$Nh
+	    flag0='Sfkxms'
+	    flag00='Ih'
+	elif [ $flag2 = 'Ekxms' ]; then
+	    Nsub=$Nh
+	    flag0='ekxms'
+	    flag00='Ih'
+	fi
+
+	# compute scale for each hypocenter of each rupture
+	area=$(expr $width*$height | bc -l)
+	tmp0=$(expr $area/$Nsub | bc -l)
+	scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+        echo $scale 
+
+	# compute Ncol
+	Ncol=$(expr $width/$scale | bc -l)
+	Ncol=${Ncol/\.*}  # float to int
+	if [ $Ncol -gt 4 ]; then
+	    Ncol=$(expr $Ncol-1 | bc )
+	fi
+
+	len=$(echo "$Nsub" | bc)
+	Nrow=$(echo "$len/$Ncol" | bc)
+	if [ $(expr $len % $Ncol) -ne 0 ]
+	then
+	    Nrow=$(($Nrow+1))
+	fi
+	
+	# just for 79 
+	if [ $sid0 = 89 ]; then
+	    Nrow=7
+	    Ncol=4
+	else
+
+	    Nrow=2
+	    Ncol=2
+	    Nrow=4
+	    Ncol=3 
+        fi 
+
+	Annot=$(echo "16/$Ncol+2" | bc)
+	Annot=14
+	gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+	gmtset ANNOT_OFFSET_PRIMARY    0.05c
+	gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+	gmtset ANNOT_OFFSET_SECONDARY  0.05c
+	gmtset HEADER_FONT 0
+	gmtset HEADER_FONT_SIZE 10
+	gmtset LABEL_FONT 1
+	gmtset LABEL_FONT_SIZE $Annot
+        #gmtset BASEMAP_AXES WESN 
+
+	dy0=$(expr $scale/50 | bc -l)
+	dx0=$(expr $scale/25 | bc -l)
+	#dy0=0.1
+	#dx0=0.2
+	x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+	y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+dy0" | bc -l)
+      
+	# Set up offset of each subplot
+	rows=`jot $Nrow $Nrow 1`
+	cols=`jot $Ncol 1 $Ncol`
+
+	# setup subplot
+	icout=0
+	for irow in ${rows}
+	do
+	    for icol in ${cols}
+	    do
+		if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+		then
+		    dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+		    dx=$x0
+		    offset[icout]="-Y$dy$unit -X$dx$unit"
+		fi
+		if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+		then
+		    dy=0.0
+		    dx=$(echo "$dx0+$scale" | bc)
+		    offset[icout]="-Y$dy$unit -X$dx$unit"
+		fi
+
+		if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+		then
+		    dy=$(echo "$dy0+$scale*0.7" | bc)
+		    #dy=$(echo "$dy0+$scale*0.9" | bc)
+		    dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+		    offset[icout]="-Y-$dy$unit -X-$dx$unit"
+		fi
+		
+		if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+		then
+		    dy=0.0
+		    dx=$(echo "$dx0+$scale" | bc)
+		    offset[icout]="-Y-$dy$unit -X$dx$unit"
+		fi
+		icout=$(expr $icout+1 | bc)
+	    done
+	done
+	
+	# colorbar
+	rdxc=$(expr $scale/2 | bc -l)$unit
+	#rdyc=$(expr $scale*1.0 | bc -l)$unit
+	rdyc=-0.2$unit
+	lth=$(expr $scale | bc)$unit
+	#wth=$(expr $scale/30.0 | bc -l )$unit
+	wth=0.1$unit
+	align=h
+	clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+
+	# rupture info
+	rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid   # generated in erf_rupture.py
+	# hypocenter location info
+	hypo=$mapin/rups_map/cybershk.$eid.$rsid.$sid.hypo
+	hypo0=$hypo.pstext   # generated in cybershk_nga_Ek.py
+	hypo1=$hypo.psxy
+	
+	# add hypocenter location and index (one by one)
+	
+	if [[ $sid -eq 112 || $sid -eq 90 ]]
+	then
+	    gawk '{print $1+0.05,$2+0.05,$3+4,$4+40,$5,$6*0.5,'$Nh'-$7}' $hypo > $hypo0
+	else
+	    gawk '{print $1+0.05,$2+0.05,$3+4,$4+40,$5,$6*0.5,$7-1}' $hypo > $hypo0
+	fi
+	
+	gawk '{print $1,$2}' $hypo > $hypo1
+	old_IFS=$IFS
+	IFS=$'\n'
+	hypo0_lines=($(cat $hypo0))
+	hypo1_lines=($(cat $hypo1))
+	IFS=$old_IFS 
+
+	if [ $flag2 = 'SFkxms' ] || [ $flag2 = 'Ekxms' ]; then
+
+	    plots=$plot2/$sid
+	    if [ ! -d $plots ]; then
+		mkdir $plots
+	    fi
+	    plots=$plots/$rid0
+	    if [ ! -d $plots ]; then
+		mkdir $plots
+	    fi
+	    psnam=$plots/Model.$period.$sid.$flag4.$flag1.$flag0
+
+	    # get the region for each rupture
+	    ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/$sid/$rid0/CyberShake.NGAs.$period.Source$sid.$flag00
+	    reg=$(minmax -I.01 ${ifile_ek}0.$flag0)
+	    #reg=-R-119.5/-115.8/32.5/35.3
+	    proj=-JM$scale$unit
+	else
+	    plots=$plot2/$sid
+	    if [ ! -d $plots ]; then
+		mkdir $plots
+	    fi
+	    
+	    # get the region for each rupture
+	    if [ $flag2 = 'IDP' ]; then
+		psnam=$plots/Model.$period.$sid.IDP
+		ifile_ek=$mapin1/Gkxmfs/Dkxs/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.$flag00
+	    elif [ $flag2 = 'fD' ]; then
+		psnam=$plots/Model.$period.$sid.$flag4.$flag1.fD
+		ifile_ek=$mapin1/Gkxmfs/Dkxs/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.$flag00
+	    elif [ $flag2 = 'Dkxs' ]; then
+		psnam=$plots/Model.$period.$sid.$flag4.$flag1.$flag0
+		ifile_ek=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.$flag00
+	    fi
+	    
+	    reg=$(minmax -I.01 ${ifile_ek}0.$flag0)
+	    #reg=-R-119.5/-116.0/32.5/35.3
+	    reg=-R-119.34/-116.0/33.29/35.02
+	    #echo $reg
+	    proj=-JM$scale$unit
+        fi
+	
+	# read Magnitude information
+	if [ $flag2 = 'Ekms' ]; then
+
+	    srcfile=$mapin1/Gkxmfs/$flag2/Sigma$sigmaD/$sid/SourceRuptureMwInfo
+	    Nmw=`gawk 'END {print NR}' $srcfile`
+	    Mw1=`gawk '{print $1}' $srcfile`    
+	    for itmp in `jot $Nmw 0 $(($Nmw -1))`
+	    do
+		field=$(($itmp+1))
+		Mws[$itmp]=`echo $Mw1 | gawk -F " " '{print $'$field'}'`     # split string
+	    done
+	fi 
+
+	for isub in `jot $Nsub 0 $(($Nsub-1))`
+	do
+	    iv=$isub
+	    
+	    if [ $flag2 = 'Dkxs' ] || [ $flag2 = 'IDP' ] || [ $flag2 = 'fD' ]; then
+		if [[ $sid -eq 89 || $sid -eq 90 ]]
+		then 
+		    iv=$(echo "${Nhs[$irup]}-$iv-1" | bc )
+		fi
+	    fi
+	    factor=0.434  # log10(exp(1)) = 0.434 convert ln to log
+	    
+	    if [ $iref -eq 4 ];then
+		iv1=$(($inga+5))
+		if [ $logscale -eq 1 ]; then
+		    gawk '{print $1,$2,exp($'$iv1')}' $ifile_ek$iv.$flag0 > $tmp_ek
+		else
+		    gawk '{print $1,$2,$'$iv1'}' $ifile_ek$iv.$flag0 > $tmp_ek 
+		fi 
+	    else
+		# compute using different reference models
+		gawk '{print $1,$2,$9-$5,$9-$6,$9-$7,$9-$8,$9,$9-$10}' $ifile_ek$iv.$flag0 > $tmp_ek.tmp
+		iv0=$((iref+3))
+		iv1=$((inga+3))
+		if [ $logscale -eq 1 ]; then
+		    if [ $iref = $inga ]; then
+			gawk '{print $1,$2,exp($'$iv1')}' $tmp_ek.tmp > $tmp_ek
+		    else
+			gawk '{print $1,$2,exp($'$iv1'-$'$iv0')}' $tmp_ek.tmp > $tmp_ek
+		    fi 
+		else 
+		    if [ $iref = $inga ]; then
+			gawk '{print $1,$2,$'$iv1'}' $tmp_ek.tmp > $tmp_ek
+		    else
+			gawk '{print $1,$2,$'$iv1'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+		    fi
+		fi  
+		rm $tmp_ek.tmp
+	    fi 
+	    
+	    if [ $flag2 = 'fD' ]; then
+		ivfD=4
+		if [ $logscale -eq 1 ]; then 
+		    gawk '{print $1,$2,exp($'$ivfD')}' $ifile_ek$iv.$flag0 > $tmp_ek
+		else 
+		    gawk '{print $1,$2,$'$ivfD'}' $ifile_ek$iv.$flag0 > $tmp_ek
+		fi 
+	    fi 
+	    
+	    if [ $flag2 = 'IDP' ]; then
+		gawk '{print $1,$2,$3}' $ifile_ek$iv.$flag0 > $tmp_ek
+	    fi 
+
+	    xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+	    triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	    
+	    if [ $flag2 = 'SEkxs' ] || [ $flag2 = 'SFkxms' ] || [ $flag2 = 'IDP' ]; then
+		grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr     
+	    fi
+
+	    grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+	    mv $grdfile.2 $grdfile
+	    
+	    if [ $sid0 = 89 ]; then 
+		gmtset BASEMAP_AXES wesn 
+		gmtset BASEMAP_FRAME_RGB white 
+	    fi 
+
+	    if [ $isub -eq 0 ]
+	    then
+		grdimage $grdfile $reg $proj -C$clr -Ba1.0f0.5eWNs ${offset[$isub]} $begin > $psnam.ps
+		#grdimage $grdfile $reg $proj -C$clr -Bewns ${offset[$isub]} $begin > $psnam.ps
+		#pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.5swne -A100 -Na -Slightblue $more >> $psnam.ps
+		pscoast $reg $proj -Dh -W0.5p/0/0/0 -A100 -Na -Slightblue $more >> $psnam.ps
+	    else
+		grdimage $grdfile $reg $proj -C$clr -Bswne ${offset[$isub]} $more >> $psnam.ps
+		pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.5swne -A100 -Na -Slightblue $more >> $psnam.ps
+		#pscoast $reg $proj -Dh -W0.5p/0/0/0 -A100 -Na -Slightblue $more >> $psnam.ps
+	    fi
+	    rm $grdfile
+	    if [ $isub = $((Nsub-2)) ]; then
+		if [ 1 = 1 ]; then
+		    psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+		else 
+gmtset ANNOT_FONT_SIZE_PRIMARY 10 
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.08i 0.10i $clrtick
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/4.0/1.0/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+gmtset ANNOT_FONT_SIZE_PRIMARY 16 
+fi 
+            fi 
+	    if [ $flag2 = 'Dkxs' ] && [ 0 -eq 1 ];then
+		# add IDP/fD on top of dkxs
+		ivfD=4
+		if [ $logscale -eq 1 ]; then 
+		    gawk '{print $1,$2,exp($'$ivfD')}' $ifile_ek$iv.$flag0 > $tmp_ek
+		else 
+		    gawk '{print $1,$2,$'$ivfD'}' $ifile_ek$iv.$flag0 > $tmp_ek
+		fi 
+		xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+		triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+		grd2cpt $grdfile $cpt -S$min00/$max00/0.15 -L$min00/$max00 > $clr0     
+		pscontour $tmp_ek $reg $proj  -C$clr0 -W0.5p/0/0/0 $more >> $psnam.ps 
+		#echo "-117.4 34.65 $Annot 0 4 LM 1.0 " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps  # correlation
+		#pscontour $tmp_ek $reg $proj -C$clr -W0.5p $more >> $psnam.ps 
+	    fi 
+
+	    if [ $flag2 = 'Ekms' ]; then 
+		echo "-119.0 33.65 $Annot 0 4 LM $flag00=${Mws[$isub]} " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps
+	    else
+		#echo "-119.0 33.65 $Annot 0 4 LM hypo $isub " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps
+		#echo 'test'
+		echo "-119.0 33.65 $Annot 0 0 LM $iv " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps
+            fi
+            index=$(($Nsub-1))
+	    psxy $rupture $reg $proj -m -W2p/0/0/0 $more >> $psnam.ps
+	    # plot hypocenter location and index using iv
+	    #echo ${hypo0_lines[$iv]} | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+	    echo ${hypo1_lines[$iv]} | psxy $reg $proj -Sp0.3 -W0/0/0 -G0/0/0 $more >> $psnam.ps 
+
+	done
+	
+	# show in pdf
+	ps2eps -q $rotation -l -f -r 300 $psnam.ps
+	convert -density 300 $psnam.eps -quality 100 $psnam.jpg 
+	ps2pdf $psnam.ps $psnam.pdf
+	open $psnam.pdf
+	break
+
+    else
+	# Plot all sources (slow)
+        echo 'ks_ms type map for Source' $sid
+	# just copy the above block without break
+
+    fi
+
+done    #loop over ruptures
+
+rm $tmp_ek

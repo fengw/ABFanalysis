@@ -1,0 +1,342 @@
+#!/bin/bash
+# illustration of the decomposition method
+flag1=$1    # target model
+flag2=$2    # reference model (if it is the same as target model, just do the ABCD decomposition)
+            #   ( if it is not the same as the target model, do the a,b,c,d decomposition )
+
+eid=35
+sgtid=5
+rsid=$3
+vid=$4
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+mflag=$5 
+sid=$6
+rid=$7   # magnitude index
+
+sigmaD='1.00_1.00'
+period=3.00
+ihypo=0  # hypocenter index
+islip=0  # rupture variation index 
+
+# common file directory
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$mflag/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$mflag
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/ABF_examples
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# tmp files
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# colormap related
+cpt=-Cpolar
+clr=$mapin/tmp.cpt
+inc=( 0.05 0.005 )
+dclr=50
+
+# basic GMT default variables (setup)
+Annot=12
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 1
+gmtset LABEL_FONT_SIZE $Annot
+
+# page setup
+gmtset PAGE_ORIENTATION landscape
+width=11.0 
+height=8.5
+begin=' -K'
+more='-K -O'
+end='-O'
+
+# unit
+unit=i   
+
+ngas=( CB BA CY AS CyberShake Ref )
+Nnga=${#ngas[@]}
+for i in `jot $Nnga 0 $(($Nnga-1))`
+do
+    if [ $flag1 = ${ngas[$i]} ]
+    then
+	inga1=$i
+	break
+    fi
+done
+N=6 
+if [ $flag1 != $flag2 ]; then
+    for i in `jot $Nnga 0 $(($Nnga-1))`
+    do
+	if [ $flag2 = ${ngas[$i]} ]
+	then
+	    inga2=$i
+	    break
+	fi
+    done
+    N=7
+fi
+
+# colorbar for B, C, D, and E (but G use different colormap since it shows the ground motion)
+clrtick=-Ba1.0f0.5
+max0=2.3
+min0=-2.3
+sigma=0.001
+nside=21   # has to be odd number
+python makecpt.py $max0 $min0 0.0 $nside $sigma 'bwr' $clr 0
+#open $mapin 
+
+# Plot the Illustration of G and all factors 
+dx0=0.3
+x0=0.5
+dy0=0.3
+scale=$(echo "($width-$dx0*($N-1)-4*dx0-2*$x0)/$N" | bc -l)
+scale=1.8
+#scale=$(echo "$scale/1.2" | bc -l)
+#x0=$(echo "($width-($scale+$dx0)*$N+$dx0)/2" | bc -l )
+y0=$(echo "($height-$scale)/2" | bc -l )
+
+# colorbar location
+rdxc=$(expr $scale*0.5 | bc -l)$unit
+rdyc=$(expr -$dy0*0.5 |bc -l)$unit
+lth=$(expr 2*$scale+0.5 | bc)$unit
+wth=$(expr $scale/15.0 | bc -l )$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+
+id=$period.$sid.$rid.$ihypo.$islip
+ifile_tmp=$mapin1/Gkxmfs/Dkxs/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.Ih
+reg=$(minmax -I.01 ${ifile_tmp}0.dkxs)
+proj=-JM$scale$unit
+
+rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid.$rid   # generated in erf_rupture.py
+
+# 1. A delete #
+srcfile0=$mapin1/Gkxmfs/A/Sigma$sigmaD/CyberShake.NGAs.$period.a
+sed 1d $srcfile0 > tmp_a
+gawk '{print $5-$1,$5-$2,$5-$3,$5-$4,$5,$5-$6}' tmp_a > $srcfile.1
+if [ $flag1 = $flag2 ]; then 
+    A1=`gawk '{print $'$inga1'}' $srcfile.1`
+else 
+    A1=`gawk '{print $'$inga1'-$'$inga2'}' $srcfile.1`
+fi
+A=`printf "%0.3f\n" $A1`   # use for text
+rm $srcfile.1 
+
+if [ $flag1 = $flag2 ]; then
+    psnam=$plot2/ABF_${flag1}.$id.gkxmfs
+    gtl='G(r,k,x,s)-A'
+    atl='A'
+    btl='B(r)'
+    ctl='C(r,k)'
+    dtl='D(r,k,x)'
+    etl='E(r,k,x,s)'
+else
+    psnam=$plot2/ABF_${flag1}_${flag2}.$id.gkxmfs
+    gtl='g(r,k,x,s)-a'
+    atl='a'
+    btl='b(r)'
+    ctl='c(r,k)'
+    dtl='d(r,k,x)'
+    etl='e(r,k,x,s)'
+fi
+
+# 2. Bs
+# formating
+ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs
+gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > tmp_b
+if [ $flag1 = $flag2 ]; then
+    iv1=$(echo "$inga1+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'}' tmp_b > $tmp_ek
+else
+    iv1=$(echo "$inga1+3" | bc -l)
+    iv2=$(echo "$inga2+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'-$'$iv2'}' tmp_b > $tmp_ek
+fi
+
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+xoff=$(echo "$scale+$dx0*4" | bc -l)
+offset="-X$xoff$unit"
+grdimage $grdfile $reg $proj -C$clr $offset $begin > $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$btl":  -A100 -Na -Slightblue $more >> $psnam.ps
+rm $tmp_ek
+
+# 3. Cks 
+ifile=$mapin1/Gkxmfs/Cks/Sigma$sigmaD/CyberShake.NGAs.$period.Source$sid.cks
+gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > tmp_c
+if [ $flag1 = $flag2 ]; then
+    iv1=$(echo "$inga1+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'}' tmp_c > $tmp_ek
+else
+    iv1=$(echo "$inga1+3" | bc -l)
+    iv2=$(echo "$inga2+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'-$'$iv2'}' tmp_c > $tmp_ek
+fi
+
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+xoff=$(echo "$scale+$dx0" | bc -l)
+offset="-X$xoff$unit"
+grdimage $grdfile $reg $proj -C$clr $offset $more >> $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$ctl":  -A100 -Na -Slightblue $more >> $psnam.ps 
+rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid 
+psxy $rupture $reg $proj -m -W2p/0/0/0 $more >> $psnam.ps
+psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+rm $tmp_ek
+
+# 4. Dkxs
+# plot hypocenter locations
+ifile=$mapin1/Gkxmfs/Dkxs/Sigma$sigmaD/$sid/CyberShake.NGAs.$period.Source$sid.Ih
+gawk '{print $1,$2,$9-$5,$9-$6,$9-$7,$9-$8,$9,$9-$10}' $ifile$ihypo.dkxs > tmp_d
+if [ $flag1 = $flag2 ]; then
+    iv1=$(echo "$inga1+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'}' tmp_d > $tmp_ek
+else
+    iv1=$(echo "$inga1+3" | bc -l)
+    iv2=$(echo "$inga2+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'-$'$iv2'}' tmp_d > $tmp_ek
+fi
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+xoff=$(echo "$scale+$dx0" | bc -l)
+offset="-X$xoff$unit"
+grdimage $grdfile $reg $proj -C$clr $offset $more >> $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$dtl":  -A100 -Na -Slightblue $more >> $psnam.ps 
+rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid 
+psxy $rupture $reg $proj -m -W2p/0/0/0 $more >> $psnam.ps
+
+# add hypocenter one by one
+hypo=$mapin/rups_map/cybershk.$eid.$rsid.$sid.hypo
+hypo0=$hypo.pstext   # generated in cybershk_nga_Ek.py
+hypo1=$hypo.psxy
+
+# add hypocenter location and index (one by one)
+gawk '{print $1,$2}' $hypo > $hypo1
+old_IFS=$IFS
+IFS=$'\n'
+hypo0_lines=($(cat $hypo0))
+hypo1_lines=($(cat $hypo1))
+IFS=$old_IFS 
+
+echo ${hypo0_lines[$ihypo]} | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+echo ${hypo1_lines[$ihypo]} | psxy $reg $proj -Sp0.1 -G0/0/0 $more >> $psnam.ps 
+echo "-119.2 33.65 $Annot 0 4 LM hypo $ihypo " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps
+
+rm $tmp_ek
+
+# 5. Ekxms and Fkxmns (sum) -> Ekxfs
+
+# 5.1 Ekxms 
+srcfile=$mapin1/Gkxmfs0/Ekxms/Sigma$sigmaD/$sid/SourceRuptureMwInfo
+Nmw=`gawk 'END {print NR}' $srcfile`
+Mw1=`gawk '{print $1}' $srcfile`    
+for itmp in `jot $Nmw 0 $(($Nmw -1))`
+do
+    field=$(($itmp+1))
+    Mws[$itmp]=`echo $Mw1 | gawk -F " " '{print $'$field'}'`     # split string
+done
+Mw1=${Mws[$rid]}
+Mw=`printf "%0.2f\n" $Mw1`   # use for text
+
+# 5.2 Ekxms 
+ifile=$mapin1/Gkxmfs0/Ekxms/Sigma$sigmaD/$sid/M$Mw/Period$period.Hypo$ihypo.ekxms
+gawk '{print $1,$2,$7-$3,$7-$4,$7-$5,$7-$6,$7,$7-$8}' $ifile > tmp_e
+if [ $flag1 = $flag2 ]; then
+    iv1=$(echo "$inga1+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'}' tmp_e > tmp_e1
+else
+    iv1=$(echo "$inga1+3" | bc -l)
+    iv2=$(echo "$inga2+3" | bc -l)
+    gawk '{print $1,$2,$'$iv1'-$'$iv2'}' tmp_e  > tmp_e1
+fi
+
+ifile=$mapin1/Gkxmfs0/Fkxmfs/Sigma$sigmaD/$sid/M$Mw/Hypocenter$ihypo/Period$period.Slip$islip.fkxmfs
+gawk '{print $1,$2,$3}' $ifile > tmp_f    # only CyberShake has the F-factor
+gawk '{print $3}' tmp_f > tmp_e2
+
+# paste and sum -> .e
+paste tmp_e1 tmp_e2 | gawk '{print $1,$2,$3+$4}' > $tmp_ek.0  # uninterpolated 
+
+# do the interpolation
+python MapInterpolation.py $tmp_ek.0 $tmp_ek 
+cat $tmp_ek > tmp_ef 
+
+# plot the assembled E-map
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+xoff=$(echo "$scale+$dx0" | bc -l)
+offset="-X$xoff$unit"
+grdimage $grdfile $reg $proj -C$clr $offset $more >> $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$etl":  -A100 -Na -Slightblue $more >> $psnam.ps 
+rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid 
+psxy $rupture $reg $proj -m -W2p/0/0/0 $more >> $psnam.ps
+echo "-119.2 33.65 $Annot 0 4 LM Mw $Mw " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps
+rm $tmp_ek
+
+
+# 6. Gkxmfs (sum all terms above)  -> .g
+# tmp_b, tmp_c, tmp_d, and tmp_ef, with A to compute tmp_g
+gawk '{print $1,$2,$3}' tmp_b > tmp_b1
+gawk '{print $3}' tmp_c > tmp_c1
+gawk '{print $3}' tmp_d > tmp_d1
+gawk '{print $3}' tmp_ef > tmp_ef1
+paste tmp_b1 tmp_c1 tmp_d1 tmp_ef1 | gawk '{print $1,$2,$3+$4+$5+$6}' > $tmp_ek.0  # uninterpolated 
+cat $tmp_ek.0 > $tmp_ek 
+
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+xoff=$(echo "4*$scale+5*$dx0" | bc -l)
+offset="-X-$xoff$unit"
+grdimage $grdfile $reg $proj -C$clr $offset $more >> $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$gtl": -A100 -Na -Slightblue $more >> $psnam.ps
+psxy $rupture $reg $proj -m -W1p/0/0/0 $more >> $psnam.ps
+echo "-119.2 33.65 $Annot 0 0 LM $atl=$A " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps
+rm $tmp_ek
+
+# show in pdf
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+
+# clean up
+rm $psnam.ps 
+rm tmp_a tmp_b tmp_c tmp_d tmp_e tmp_f tmp_b1 tmp_c1 tmp_d1 tmp_ef1 tmp_ef tmp_e1 tmp_e2 

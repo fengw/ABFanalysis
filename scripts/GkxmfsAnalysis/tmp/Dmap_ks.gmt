@@ -1,0 +1,213 @@
+#!/bin/bash
+# plot (k,s) type of plot for all ruptures and plot them on one map
+eid=$1
+sgtid=$2
+rsid=$3   # rup_scenario_id
+vid=$4    # vel_id
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+period=$5
+flag1=$6
+flag3=$7   # Model flag
+flag2='SDks'
+sid0=$8
+
+# common file locations
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/GkxmfsDmap
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/$flag2
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 0 -eq 0 ]
+then
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+fi
+unit=i   # inch
+
+sigmaDs=( 0.2 0.4 0.6 0.8 )
+Nsig=${#sigmaDs[@]}
+N=$Nsig 
+
+# color map
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+
+
+clr=$mapin/tmp.cpt
+flag0='Sdks'   # suffix
+# grd2cpt
+max0=1.0
+min0=0.0
+dclr=0.1
+cpt='-Cglobe -I'
+clrtick=-Ba0.5f0.2
+
+# compute scale
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+
+# compute Ncol
+Ncol=$(expr $width/$scale | bc -l)
+Ncol=${Ncol/\.*}  # float to int
+
+#len=$(($N+1))
+len=$N
+Nrow=$(echo "$len/$Ncol" | bc)
+if [ $(expr $len % $Ncol) -ne 0 ]
+then
+    Nrow=$(($Nrow+1))
+fi
+
+Annot=$(echo "20/$Ncol+1" | bc)
+Annot=14
+gmtset BASEMAP_TYPE plain
+
+gmtset ANNOT_FONT_PRIMARY 4
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SECONDARY 4
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+
+# labels
+gmtset LABEL_FONT 4
+gmtset LABEL_FONT_SIZE $Annot
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/25 | bc -l)
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+    
+done
+# write a function and return offset array (input dx0,scale,dy0,unit,x0,y0)
+
+# colorbara
+rdxc=$(expr $scale/2 | bc -l)$unit
+rdyc=$(expr $scale+$dy0*3 |bc -l)$unit
+lth=$(expr $scale+0.5 | bc)$unit
+wth=$(expr $scale/30.0 | bc -l )$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+# ============================
+
+ifile_ek=$mapin1/GkxmfsDmap/$flag2/CyberShake.$flag1.$period.Source$sid0.$flag0
+reg=$(minmax -I.01 $ifile_ek)
+proj=-JM$scale$unit
+
+# plot for all ruptures
+psnam=$plot2/Model.$period.CyberShake.$flag1.$flag0.$sid0
+for isrc in `jot $N 0 $(($N-1))`
+do
+    icolumn=$(($isrc+3))
+    ifile_ek=$mapin1/GkxmfsDmap/$flag2/CyberShake.$flag1.$period.Source$sid0.$flag0
+    
+    # source information
+    rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid0
+    
+    gawk '{print $1,$2,$'$icolumn'}' $ifile_ek > $tmp_ek
+    xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+    grd2cpt $grdfile $cpt -I -S$min0/$max0/$dclr -L$min0/$max0 > $clr 
+    triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+    grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+    mv $grdfile.2 $grdfile
+    
+    if [ $isrc -eq 0 ]
+    then
+	grdimage $grdfile $reg $proj -C$clr ${offset[$isrc]} $begin > $psnam.ps
+	pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1SWne -A100 -Na -Slightblue $more >> $psnam.ps
+	psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  
+    else
+	grdimage $grdfile $reg $proj -C$clr ${offset[$isrc]} $more >> $psnam.ps
+	pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba0.5f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps
+    fi
+
+    psxy $rupture $reg $proj -m -W1p/0/0/0 $more >> $psnam.ps
+    # rm tmp file
+    echo "-119.0 33.65 14 0 4 LM ${sigmaDs[$isrc]}" | pstext $reg $proj -G0/0/0 $more >> $psnam.ps
+    rm $tmp_ek $grdfile
+done
+
+# save as eps
+ps2eps -r 300 -q -l -f $psnam.ps
+
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+#rm $psnam.ps 

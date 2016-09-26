@@ -1,0 +1,291 @@
+#!/bin/bash
+# plot B(s) at several periods for one Model
+# ...
+eid=$1
+sgtid=$2
+rsid=$3    # rup_scenario_id
+vid=$4     # vel_id
+
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+flag3=$5   # Model Flag
+flag4=$6   # RefModel default is CS
+logscale=$7
+sigmaD=$8
+
+# common file locations
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Bs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 1 -eq 0 ]
+then
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+    
+fi
+unit=i   # inch
+
+Annot=14
+ftype=0   # time new roman
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_PRIMARY $ftype 
+gmtset ANNOT_FONT_SECONDARY $ftype 
+
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT $ftype
+gmtset HEADER_FONT_SIZE 14
+gmtset LABEL_FONT $ftype
+gmtset LABEL_FONT_SIZE 14
+
+# labels
+gmtset LABEL_FONT $ftype 
+gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+# Change when 3.0,5.0,and 10.0 ...
+periods=( 2.00 3.00 5.00 10.00 )
+texts=( '2.0' '3.0' '5.0' '10.0' )
+texts1=( '(a)' '(b)' '(c)' '(d)' )
+
+#periods=( 3.00 5.00 10.00 )
+#texts=( 'T=3.0' '5.0' '10.0' )
+#texts1=( '(a)' '(b)' '(c)' )
+
+# Targets:
+ngas=( CB BA CY AS )
+ngas=( CyberShake )
+ngas=( BA )
+Nnga=${#ngas[@]}
+refs=( CB BA CY AS CyberShake Ref )   # available reference models 
+Nref=${#refs[@]}
+
+iref=4    # default reference model
+for i in `jot $Nref 0 $(($Nref-1))`
+do
+    if [ $flag4 = ${refs[$i]} ]
+    then
+	iref=$i
+    fi 
+done
+
+
+N=${#periods[@]}
+N1=$(echo "$Nnga*$N" | bc -l)
+
+Nrow=$Nnga
+Ncol=$N
+echo $Nrow $Ncol 
+
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N1 | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+scale=2.3
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/10 | bc -l)
+
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# Set up offset of each subplot
+rows=`jot $Nrow $Nrow 1`
+cols=`jot $Ncol 1 $Ncol`
+
+# setup subplot
+icout=0
+for irow in ${rows}
+do
+    for icol in ${cols}
+    do
+    if [ $irow -eq $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "($dy0+$scale)*($irow-1)+$y0" | bc -l)
+	dx=$x0
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+    if [ $irow -eq $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y$dy$unit -X$dx$unit"
+    fi
+
+    if [ $irow -ne $Nrow ] && [ $icol -eq 1 ]
+    then
+	dy=$(echo "$dy0+$scale" | bc)
+	dx=$(echo "($dx0+$scale)*($Ncol-1)" | bc -l)
+	offset[icout]="-Y-$dy$unit -X-$dx$unit"
+    fi
+    
+    if [ $irow -ne $Nrow ] && [ $icol -ne 1 ]
+    then
+	dy=0.0
+	dx=$(echo "$dx0+$scale" | bc)
+	offset[icout]="-Y-$dy$unit -X$dx$unit"
+    fi
+    icout=$(expr $icout+1 | bc)
+    done
+    
+done
+
+# colorbar
+rdxc=$(expr $scale/2 | bc -l)$unit
+rdyc=$(expr $scale+$dy0*3 |bc -l)$unit
+lth=$(expr $scale+0.5 | bc)$unit
+wth=$(expr $scale/30.0 | bc -l )$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+# ============================
+
+# colormap and colorbar
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+clr=$mapin/tmp.cpt
+cpt=-Cpolar
+dclr0=10
+clrtick=-Ba1.0f0.5
+
+legs='b(r)'
+max0=2.31
+min0=-2.31
+
+sigma=0.001
+nside=21
+
+sigma=0.1
+nside=11
+python makecpt0.py $max0 $min0 0.0 $nside $sigma bwr $clr $logscale 
+
+#Nclr=$(echo "$nside*2" | bc -l)
+#matlab -nojvm -r "makecpt($max0,$min0,$Nclr,'$clr','bwr'); exit"
+
+ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.3.00.bs
+reg=$(minmax -I.01 $ifile)
+proj=-JM$scale$unit
+
+psnam=$plot2/Model.periods.NGAs.Ref$flag4.bs
+imodel=-1
+#for inga in 1 2 0 3
+#for inga in `jot $Nnga 0 $(($Nnga-1))`
+for inga in 1
+do 
+    imodel=$(($imodel+1))
+
+    for it in `jot $N 0 $(($N-1))`
+    do
+	# loop over periods 
+	period=${periods[$it]}
+	ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs 
+	reg=$(minmax -I.01 $ifile)
+	proj=-JM$scale$unit
+	
+	isub=$(echo "$it+$N*$imodel" | bc -l)
+
+	if [ $iref -eq 4 ];then
+	    # CyberShake as the reference model
+	    iv=$(($inga+6))
+	    if [ $logscale -eq 1 ]; then
+		gawk '{print $1,$2,exp($'$iv')}' $ifile > $tmp_ek
+	    else
+		gawk '{print $1,$2,$'$iv'}' $ifile > $tmp_ek
+	    fi 
+	else
+	    # other reference models
+	    gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > $tmp_ek.tmp
+	    iv=$((iref+3))
+	    iv0=$((inga+3))
+	    if [ $iv0 = $iv ]; then 
+		gawk '{print $1,$2,$'$iv'}' $tmp_ek.tmp > $tmp_ek
+	    else 
+		if [ $logscale -eq 1 ]; then
+		    gawk '{print $1,$2,exp($'$iv'-$'$iv0')}' $tmp_ek.tmp > $tmp_ek
+		else
+		    gawk '{print $1,$2,$'$iv'-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+		fi 
+		rm $tmp_ek.tmp 
+	    fi 
+
+	fi 
+
+	xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+	triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+	#grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr     
+	grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+	mv $grdfile.2 $grdfile
+
+	if [ $isub -eq 0 ]; then
+	    grdimage $grdfile $reg $proj ${offset[$isub]} -C$clr $begin > $psnam.ps
+	    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+	else
+	    grdimage $grdfile $reg $proj ${offset[$isub]} -C$clr $more >> $psnam.ps
+	    if [ $imodel == 0 ]; then 
+		pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps 
+	    else 
+		pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps 
+            fi 
+	fi
+	
+	echo "-117.75 34.8 16 0 0 LM ${texts[$it]} " | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+        #if [ $imodel -eq 0 ]; then 
+	#    echo "-119.25 33.6 14 0 4 LM ${texts[$it]} " | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+	#fi 
+	#itmp=$(echo "$imodel*$N" | bc -l)
+	#if [ $isub -eq $itmp ]; then
+	#    #echo "-119.25 34.8 12 0 $ftype LM ${texts1[$imodel]} " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+	#    echo "-119.25 33.6 12 0 $ftype LM ${ngas[$inga]}08 " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+
+	#fi 
+	rm $tmp_ek $grdfile
+    done
+done
+
+ps2eps -q -l -f -R + -r 300 $psnam.ps
+
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+open $plot2
+rm $psnam.ps 
+

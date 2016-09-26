@@ -1,0 +1,147 @@
+#!/bin/bash
+eid=35
+sgtid=7
+rsid=$1
+vid=$2
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+mflag=$3 
+period=$4
+icmp=$5
+
+# common file directory
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Excitation$mflag/$prefix
+
+plot0=$wrk/plots/Excitation_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$mflag
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+plot2=$plot2/SpectraFTmax
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# tmp files
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# colormap related
+cpt=-Cpolar
+clr=$mapin/tmp.cpt
+clr1=./cool2warm.cpt
+inc=( 0.05 0.005 )
+dclr=50
+
+# basic GMT default variables (setup)
+Annot=12
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 1
+gmtset LABEL_FONT_SIZE $Annot
+
+# page setup
+gmtset PAGE_ORIENTATION landscape
+width=11.0 
+height=8.5
+begin=' -K'
+more='-K -O'
+end='-O'
+
+# unit
+unit=i   
+
+# Plot the Illustration of G and all factors 
+dx0=0.3
+x0=0.5
+dy0=0.3
+scale=4.0
+#scale=$(echo "$scale/1.2" | bc -l)
+#x0=$(echo "($width-($scale+$dx0)*$N+$dx0)/2" | bc -l )
+y0=$(echo "($height-$scale)/2" | bc -l )
+
+# colorbar location
+rdxc=$(expr $scale*0.5 | bc -l)$unit
+rdyc=$(expr -$dy0*0.5 |bc -l)$unit
+lth=$(expr $scale+0.5 | bc)$unit
+wth=$(expr $scale/15.0 | bc -l )$unit
+align=h
+clrbar=-D$rdxc/$rdyc/$lth/$wth$align    # colorbar relative location (central/top) and size 
+
+ifile_tmp=$mapin1/FTmax_average${period}_cmp${icmp}.txt
+reg=$(minmax -I.01 ${ifile_tmp})
+proj=-JM$scale$unit
+
+ifile=$mapin1/FTmax_average${period}_cmp${icmp}.txt
+psnam=$plot2/SpectraFmax_cmp${icmp}
+
+# Fmax (for Pmax) 
+gawk '{print $1,$2,$5}' $ifile > $tmp_ek
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+
+max0=0.5
+min0=0.0
+dclr=0.05
+cpt='-Cseis'
+cpt='-Cocean'
+cpt='-Cglobe -I'
+cpt='-Ctopo'
+cpt='-Ccool2warm'
+cpt='-Cnrwc -I'
+cpt='-Cyellow2red'
+makecpt $cpt -T$min0/$max0/$dclr > $clr
+#grd2cpt $grdfile $cpt -I -S$min0/$max0/$dclr -L$min0/$max0 > $clr 
+clrtick=-Ba0.1f0.05:"frequency[Hz]":
+
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+grdimage $grdfile $reg $proj -C$clr $begin > $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$btl":  -A100 -Na -Slightblue $more >> $psnam.ps
+
+psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+rm $tmp_ek
+
+if [ 1 -eq 0 ]; then
+# Fmax for Tmax
+gawk '{print $1,$2,$6}' $ifile > $tmp_ek
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+
+#makecpt $cpt -T$min0/$max0/$dclr  > $clr
+#grd2cpt $grdfile $cpt -I -S$min0/$max0/$dclr -L$min0/$max0 > $clr 
+#clrtick=-Ba10f5:"PeakTime[s]":
+
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg15 -G$grdfile.2
+mv $grdfile.2 $grdfile
+
+xoff=$(echo "$scale+$dx0*4" | bc -l)
+offset="-X$xoff$unit"
+grdimage $grdfile $reg $proj -C$clr $offset $more >> $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne:."$btl":  -A100 -Na -Slightblue $more >> $psnam.ps
+psscale $clrbar -C$clr $clrtick $more >> $psnam.ps  # linear color scale but log value 
+rm $tmp_ek
+fi 
+
+# show in pdf
+ps2eps -R + -q -l -f -r 300 $psnam.ps
+ps2pdf $psnam.ps $psnam.pdf
+open $psnam.pdf
+
+# clean up
+rm $psnam.ps 
