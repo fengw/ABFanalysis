@@ -38,8 +38,8 @@ cybershk_database_password = '****'   # this should goes to github
 # CyberShake study/model indicator (currently focused versions)
 #erf_id, sgt_id, rup_scenario_id, vel_id = 35, 5, 3, 1    # original CyberShake Models 
 #erf_id, sgt_id, rup_scenario_id, vel_id = 35, 7, 4, 4    # CS13.2 (CVMH)
-erf_id, sgt_id, rup_scenario_id, vel_id = 35, 8, 4, 5    # CS14S4.26 (CVM-S4.26)
-#erf_id, sgt_id, rup_scenario_id, vel_id = 36, 8, 6, 5    # updated CyberShake Models
+#erf_id, sgt_id, rup_scenario_id, vel_id = 35, 8, 4, 5    # CS14S4.26 (CVM-S4.26)
+erf_id, sgt_id, rup_scenario_id, vel_id = 36, 8, 6, 5    # updated CyberShake Models
 
 rup_model_ids = ( erf_id, sgt_id, rup_scenario_id, vel_id )
 print 'CyberShake Study: %s'%str(rup_model_ids)
@@ -167,7 +167,7 @@ if opt == 'Preparation':
     print 'MetaData Preparation for ABF analysis'
     print '='*50
     
-    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password, rup_model_ids=rup_model_ids, sids=sids,periods=[3.0,],mflag=mflag,bb=bb,NGAs=NGAs,Reference=Reference)
+    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password, rup_model_ids=rup_model_ids, sids=sids,periods=[3.0,],mflag=mflag,bb=bb,NGAs=NGAs,Reference=Reference,ngaModelVersion=modelVersion)
     
     # Extract database and ruptures (controls the first digit in mflag)
     print '='*30
@@ -217,7 +217,7 @@ if opt == 'Preparation':
 	    print 'NGA Flatinfo for all ruptures exists...'
 	else:
 	    print 'NGA flatinfo extraction for missing ruptures...'
-	    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids0,periods=[3.0,],mflag=mflag,NGAs=NGAs,Reference=Reference)
+	    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids0,periods=[3.0,],mflag=mflag,NGAs=NGAs,Reference=Reference,ngaModelVersion=modelVersion)
 	    CN.OpenSHA_nga_cpt([3.0,],rids0,SiteName=None)    # periods dependent (compute at four periods)
 	
 	end_time = HourMinSecToSec(BlockName='OpenSHA NGA MetaData Extracting Finished')
@@ -248,7 +248,7 @@ if opt == 'Preparation':
 	    print 'Directivity Flatinfo for all ruptures exists...'
 	else:
 	    print 'Directivity info extraction for missing ruptures...'
-	    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids0, periods=[3.0,],mflag=mflag,NGAs=NGAs,Reference=Reference)
+	    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids0, periods=[3.0,],mflag=mflag,NGAs=NGAs,Reference=Reference,ngaModelVersion=modelVersion)
 	    CN.SC08_cpt(rids0)         # just use one period
        
 	end_time = HourMinSecToSec(BlockName='SC08 MetaData Extracting Finished')
@@ -305,7 +305,7 @@ if opt == 'GkxmfsAnalysis':
     periods = [2.0,3.0,5.0,10.0]  # CS11, CS13.2, CS14S4.26 have those 4 periods
     #periods = [3.0, ]   #ERF=36 has 1.0 sec
     print 'Do calculation for periods:', periods
-    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids,periods = periods, mflag=mflag,NGAs=NGAs,Reference=Reference)
+    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids,periods = periods, mflag=mflag,NGAs=NGAs,Reference=Reference,ngaModelVersion=modelVersion)
     
     print '='*30
     start_time0 = HourMinSecToSec(BlockName='CyberShake (%s,%s,%s,%s) Statistical Analysis starts'%(erf_id,sgt_id,rup_scenario_id,vel_id))
@@ -346,7 +346,7 @@ if opt == 'PlotAkE0':
     periods = [3.0,]
     periods = [3.0,5.0,10.0]
     periods = [2.0,3.0,5.0,10.0]
-    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids,periods=periods,mflag=mflag,NGAs=NGAs,Reference=Reference)
+    CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids,periods=periods,mflag=mflag,NGAs=NGAs,Reference=Reference,ngaModelVersion=modelVersion)
     CN.PlotAkE0(sigma, Ref=refmodel)
 
 sys.exit('Finished!')
