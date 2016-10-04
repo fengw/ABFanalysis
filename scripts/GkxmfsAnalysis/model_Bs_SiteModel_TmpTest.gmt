@@ -1,0 +1,190 @@
+#!/bin/bash
+# plot B(s) function or differential B(s) between models
+# specified period (one period)
+# ./model_Bs_SiteModel_TmpTest.gmt 35 8 4 5 3.00 54 Ref 0 1.00_1.00 OnlyBs   (use 0 as logscale)
+eid=$1
+sgtid=$2
+rsid=$3    # rup_scenario_id
+vid=$4     # vel_id
+
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+period=$5  # period
+flag3=$6   # Model Flag
+flag4=$7   # RefModel default is CS
+
+logscale=$8
+sigmaD=$9   # weighting function used in ABF  # format: 0.10_0.10
+plotM=${10}    # LocalModel or OnlyBs
+
+wrk=/Users/fengw/work/Project/ABFanalysis
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+plot0=$wrk/plots/Model_plots
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/Model$flag3
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+plot2=$plot1/$prefix
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Gkxmfs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+plot2=$plot2/Bs
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+#add sigma
+plot2=$plot2/Sigma$sigmaD
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 0 -eq 1 ]
+then
+    gmtset PAGE_ORIENTATION portrait 
+
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+fi
+unit=i   # inch
+
+Annot=14
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+
+# labels
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+# Set up iref
+ngas=( CB BA CY AS )    # we want the order 1 0 2 3
+
+Nnga=${#ngas[@]}
+iref=4    # default as CyberShake
+for i in `jot $Nnga 0 $(($Nnga-1))`
+do
+    if [ $flag4 = ${ngas[$i]} ]
+    then
+	iref=$i
+	break
+    fi                                                              
+done
+if [ $flag4 = 'Ref' ]; then
+    iref=5
+fi 
+
+# Set up subplots 
+# =======================================================================================================
+# First block, plot CyberShake only versus the ref, if ref is CyberShake, use the averaged ref of 4 NGA models
+# =======================================================================================================
+N=2
+Nrow=1
+Ncol=2
+area=$(expr $width*$height | bc -l)
+tmp0=$(expr $area/$N | bc -l)
+scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
+
+dy0=$(expr $scale/25 | bc -l)
+dx0=$(expr $scale/25 | bc -l)
+dy0=0.1
+dx0=0.1
+x0=$(echo "($width-($dx0+$scale)*$Ncol+$dx0)/2" | bc -l)
+y0=$(echo "($height-($dy0+$scale)*$Nrow+$dy0)/2+$dy0" | bc -l)
+
+# ============================
+# colormap and colorbar
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+clr=$mapin/tmp.cpt
+cpt=-Cpolar
+dclr0=10
+clrtick=-Ba1.0f0.1
+cmapname='bwr'
+invert=0 
+
+sigma=0.1
+legs='b(r)'
+legs=''
+max0=2.4
+min0=-2.4
+npoints=21    # each side point numbers
+#python makecpt.py $max0 $min0 0.0 $npoints $sigma $cmapname $clr $logscale
+max0=2.31
+min0=-2.31
+sigma=0.1
+npoints=11
+python makecpt0.py $max0 $min0 0.0 $npoints $sigma $cmapname $clr $logscale
+
+ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs
+
+reg=$(minmax -I.01 $ifile)
+proj=-JM$scale$unit
+
+psnam=$plot2/Model.$period.CyberShake.$flag4.bs
+gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > $tmp_ek.tmp
+if [ $flag4 != 'CyberShake' ]; then
+    iv0=$((iref+3))
+    gawk '{print $1,$2,$7-$'$iv0'}' $tmp_ek.tmp > $tmp_ek
+else 
+    #gawk '{print $1,$2,($3+$4+$5+$6)/4}' $tmp_ek.tmp > $tmp_ek
+    gawk '{print $1,$2,$7}' $tmp_ek.tmp > $tmp_ek
+fi 
+cp $tmp_ek $tmp_ek.tmpTest
+
+# check the grid
+cat $tmp_ek > "/Users/fengw/Desktop/CyberShakeBasinEffect.csv"
+xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+mv $grdfile.2 $grdfile
+grdimage $grdfile $reg $proj -C$clr $begin > $psnam.ps
+pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+echo "-119.65 35.2 16 0 0 LM (a)" | pstext $reg $proj $more >> $psnam.ps 
+
+# add legend 
+if [ 1 -eq 1 ]; then
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.05i 0.14i -Ba1.0f0.2:"b(r)":
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/4.3/1.8/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+#rm $grdfile ./legendtext
+#rm $tmp_ek 
+fi 
+

@@ -17,18 +17,19 @@ erf_id = 35  # UCERF2
 erf_id = 36  # UCERF2 (finer fault grid)
 
 sgt_id = 5   # GP v3
-sgt_id = 6   # AWP
+sgt_id = 6   # AWP-CPU
 sgt_id = 7   # GP v3.0.3
-sgt_id = 8   # AWP-GPU?  (CyberShake study 14.2)
+sgt_id = 8   # AWP-GPU  (CyberShake study 14.2 with CVM-S)
 
 rup_scenario_id = 3  # GP 2007
-rup_scenario_id = 4  # GP 2010 (available only for CyberShake 13.4)
+rup_scenario_id = 4  # GP 2010 (available only for CyberShake 13.4 and 14.2)
 rup_scenario_id = 6  # GP updated model 2015?
 
 vel_id = 1    # CVM-SCEC
 vel_id = 2    # CVM-H v11.2
 vel_id = 4    # CVM-H v11.9.1  (updated CVM-H) 
 vel_id = 5    # CVM-S4.26   (CVM-SCEC model updates from Po's inversion)
+vel_ID = 7    # CVM-H without GTL
 vel_id = 8    # BBP 1D velocity
 """
 
@@ -38,8 +39,9 @@ cybershk_database_password = '****'   # this should goes to github
 # CyberShake study/model indicator (currently focused versions)
 #erf_id, sgt_id, rup_scenario_id, vel_id = 35, 5, 3, 1    # original CyberShake Models 
 #erf_id, sgt_id, rup_scenario_id, vel_id = 35, 7, 4, 4    # CS13.2 (CVMH)
-#erf_id, sgt_id, rup_scenario_id, vel_id = 35, 8, 4, 5    # CS14S4.26 (CVM-S4.26)
-erf_id, sgt_id, rup_scenario_id, vel_id = 36, 8, 6, 5    # updated CyberShake Models
+#erf_id, sgt_id, rup_scenario_id, vel_id = 35, 8, 4, 5    # CS14S4.26 (CVM-S4.26, CyberShake 14.2)
+erf_id, sgt_id, rup_scenario_id, vel_id = 35, 6, 4, 7    # CS14CVMH (CyberShake 14.2) 
+#erf_id, sgt_id, rup_scenario_id, vel_id = 36, 8, 6, 5    # updated CyberShake Models
 
 rup_model_ids = ( erf_id, sgt_id, rup_scenario_id, vel_id )
 print 'CyberShake Study: %s'%str(rup_model_ids)
@@ -51,8 +53,7 @@ bb = 0       # include all frequency band (later you can specify the frequencies
 
 # Target NGA models (two flags, 4 digits)
 NGAmodels=['CB','BA','CY','AS'] 
-modelVersion = '2008' 
-modelVersion = '2014'
+modelVersion = '2014'   # new ABF analysis is all based on 2014 GMPEs
 
 if modelVersion == '2014': 
     NGAs={'CB':{'NewCoefs':None,'terms':(1,1,1,1,1,1,1,1,1)},\
@@ -101,8 +102,10 @@ mflag = sys.argv[2]  # default is '0' for workflow test
 print 'Model Flag: ', mflag
 if mflag == '0':
     # used for debug of the workflow and some special cases
-    sids = [255,10]
-    srcPDF = [0.5,0.5 ]  # test srcPDF
+    #sids = [255,10]
+    #srcPDF = [0.5,0.5 ]  # test srcPDF
+    sids = [255,]
+    srcPDF = [0.5, ]  # test srcPDF
     #sids = [93,88] 
     #srcPDF = [1./2.]*2 
 
