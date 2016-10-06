@@ -16,7 +16,7 @@ sigmaD=${10}
 sid0=${11}     # =0, plot all source; !=0 one source 
 
 # common file locations
-wrk=/Users/fengw/work/Project/CyberShake_analysis
+wrk=/Users/fengw/work/Project/ABFanalysis
 mapin=$wrk/scripts/map_input
 mapin1=$mapin/Model_Rups$flag3/$prefix
 
@@ -339,7 +339,7 @@ if [ $sid0 = 0 ]; then
 	fi 
 	# source information
 	rupture=$mapin/rups_map/cybershk.$eid.$rsid.$sid
-        downdip=$mapin/rups_map/cybershk.$eid.3.$sid.downdip 
+        downdip=$mapin/rups_map/cybershk.$eid.$rsid.$sid.downdip 
 
 	if [ $inga -eq 4 ];then
 	    if [ $flag2 = 'SDks' ] || [ $flag2 = 'SEks' ]; then

@@ -39,9 +39,11 @@ cybershk_database_password = '****'   # this should goes to github
 # CyberShake study/model indicator (currently focused versions)
 #erf_id, sgt_id, rup_scenario_id, vel_id = 35, 5, 3, 1    # original CyberShake Models 
 #erf_id, sgt_id, rup_scenario_id, vel_id = 35, 7, 4, 4    # CS13.2 (CVMH)
-#erf_id, sgt_id, rup_scenario_id, vel_id = 35, 8, 4, 5    # CS14S4.26 (CVM-S4.26, CyberShake 14.2)
-erf_id, sgt_id, rup_scenario_id, vel_id = 35, 6, 4, 7    # CS14CVMH (CyberShake 14.2) 
-#erf_id, sgt_id, rup_scenario_id, vel_id = 36, 8, 6, 5    # updated CyberShake Models
+
+erf_id, sgt_id, rup_scenario_id, vel_id = 35, 8, 4, 5    # CS14S4.26 (CVM-S4.26, CyberShake 14.2)
+#erf_id, sgt_id, rup_scenario_id, vel_id = 35, 6, 4, 7    # CS14CVMH (CyberShake 14.2) 
+
+#erf_id, sgt_id, rup_scenario_id, vel_id = 36, 8, 6, 5    # updated CyberShake Models (2015 runs, new rup variations and CVM-S)
 
 rup_model_ids = ( erf_id, sgt_id, rup_scenario_id, vel_id )
 print 'CyberShake Study: %s'%str(rup_model_ids)
@@ -104,8 +106,8 @@ if mflag == '0':
     # used for debug of the workflow and some special cases
     #sids = [255,10]
     #srcPDF = [0.5,0.5 ]  # test srcPDF
-    sids = [255,]
-    srcPDF = [0.5, ]  # test srcPDF
+    sids = [271,]
+    srcPDF = [1, ]  # test srcPDF
     #sids = [93,88] 
     #srcPDF = [1./2.]*2 
 
@@ -285,6 +287,8 @@ if opt == 'DowndipSurface':
 	side2 = faults[:,:,-1]
 
 	# write into files
+	tmpOut = outpth + '/%s.%s.%s'%(prefix, sid, suffix)
+	print tmpOut
 	fid = open(outpth + '/%s.%s.%s'%(prefix, sid, suffix),'w')
 	for ip in xrange(bottoms.shape[1]):
 	    fid.write('%s %s\n'%(bottoms[0,ip],bottoms[1,ip]))
@@ -306,7 +310,9 @@ if opt == 'GkxmfsAnalysis':
     periods = [5.0,10.0]       # For the new rupture generator source there is no calculation for 2.0s SA
     periods = [3.0, 5.0, 10.0]
     periods = [2.0,3.0,5.0,10.0]  # CS11, CS13.2, CS14S4.26 have those 4 periods
-    #periods = [3.0, ]   #ERF=36 has 1.0 sec
+    if erf_id == 36:
+	periods = [1.0,2.0,3.0,5.0,10.0]  # ERF 36 has 1.0s 
+    
     print 'Do calculation for periods:', periods
     CN = CyberShakeNGA.cybershk_nga(wrk,cybershk_database_password,rup_model_ids=rup_model_ids, sids=sids,periods = periods, mflag=mflag,NGAs=NGAs,Reference=Reference,ngaModelVersion=modelVersion)
     

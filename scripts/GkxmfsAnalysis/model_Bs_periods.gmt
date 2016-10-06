@@ -14,7 +14,7 @@ logscale=$7
 sigmaD=$8
 
 # common file locations
-wrk=/Users/fengw/work/Project/CyberShake_analysis
+wrk=/Users/fengw/work/Project/ABFanalysis
 mapin=$wrk/scripts/map_input
 mapin1=$mapin/Model_Rups$flag3/$prefix
 
@@ -67,7 +67,7 @@ else
 fi
 unit=i   # inch
 
-Annot=14
+Annot=8
 ftype=0   # time new roman
 gmtset BASEMAP_TYPE plain
 gmtset ANNOT_FONT_PRIMARY $ftype 
@@ -78,13 +78,13 @@ gmtset ANNOT_OFFSET_PRIMARY    0.05c
 gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
 gmtset ANNOT_OFFSET_SECONDARY  0.05c
 gmtset HEADER_FONT $ftype
-gmtset HEADER_FONT_SIZE 14
+gmtset HEADER_FONT_SIZE $Annot
 gmtset LABEL_FONT $ftype
-gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_FONT_SIZE $Annot
 
 # labels
 gmtset LABEL_FONT $ftype 
-gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_FONT_SIZE $Annot
 gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
 
 # Change when 3.0,5.0,and 10.0 ...
@@ -98,8 +98,8 @@ texts1=( '(a)' '(b)' '(c)' '(d)' )
 
 # Targets:
 ngas=( CB BA CY AS )
-ngas=( CyberShake )
-ngas=( BA )
+#ngas=( CyberShake )
+#ngas=( BA )
 Nnga=${#ngas[@]}
 refs=( CB BA CY AS CyberShake Ref )   # available reference models 
 Nref=${#refs[@]}
@@ -124,7 +124,7 @@ echo $Nrow $Ncol
 area=$(expr $width*$height | bc -l)
 tmp0=$(expr $area/$N1 | bc -l)
 scale=$(echo "sqrt($tmp0)/1.5" | bc -l)
-scale=2.3
+#scale=2.3
 dy0=$(expr $scale/25 | bc -l)
 dx0=$(expr $scale/10 | bc -l)
 
@@ -209,11 +209,12 @@ proj=-JM$scale$unit
 psnam=$plot2/Model.periods.NGAs.Ref$flag4.bs
 imodel=-1
 #for inga in 1 2 0 3
-#for inga in `jot $Nnga 0 $(($Nnga-1))`
-for inga in 1
+for inga in `jot $Nnga 0 $(($Nnga-1))`
+#for inga in 1  # use BA
 do 
     imodel=$(($imodel+1))
 
+    psnam=$plot2/Model.periods.NGAs.Ref$flag4.bs
     for it in `jot $N 0 $(($N-1))`
     do
 	# loop over periods 
@@ -266,18 +267,27 @@ do
 	    else 
 		pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1swne -A100 -Na -Slightblue $more >> $psnam.ps 
             fi 
-	fi
-	
-	echo "-117.75 34.8 16 0 0 LM ${texts[$it]} " | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
-        #if [ $imodel -eq 0 ]; then 
-	#    echo "-119.25 33.6 14 0 4 LM ${texts[$it]} " | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
-	#fi 
-	#itmp=$(echo "$imodel*$N" | bc -l)
-	#if [ $isub -eq $itmp ]; then
-	#    #echo "-119.25 34.8 12 0 $ftype LM ${texts1[$imodel]} " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
-	#    echo "-119.25 33.6 12 0 $ftype LM ${ngas[$inga]}08 " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
 
-	#fi 
+if [ $isub -eq 1 ]; then
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr 0.025i 0.07i -Ba1.0f0.2
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/2.0/0.8/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+rm ./legendtext
+fi 
+	fi
+	#echo "-119.25 33.6 12 0 $ftype LM ${texts[$it]} " | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+        if [ $imodel -eq 0 ]; then 
+	    echo "-117.75 34.8 12 0 0$ftype LM ${texts[$it]} " | pstext $reg $proj -G0/0/0 $more  >> $psnam.ps 
+	fi 
+	itmp=$(echo "$imodel*$N" | bc -l)
+	if [ $isub -eq $itmp ]; then
+	    #echo "-119.25 34.8 12 0 $ftype LM ${texts1[$imodel]} " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+	    echo "-119.25 33.6 12 0 $ftype LM ${ngas[$inga]}14 " | pstext $reg $proj -G0/0/0 $more >> $psnam.ps 
+
+	fi 
 	rm $tmp_ek $grdfile
     done
 done

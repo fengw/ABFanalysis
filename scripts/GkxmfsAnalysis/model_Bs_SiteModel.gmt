@@ -14,7 +14,7 @@ flag4=$7   # RefModel default is CS
 
 logscale=$8
 sigmaD=$9   # weighting function used in ABF  # format: 0.10_0.10
-plotM=${10}    # LocalModel or Only
+plotM=${10}    # LocalModel or OnlyBs
 
 wrk=/Users/fengw/work/Project/ABFanalysis
 mapin=$wrk/scripts/map_input
@@ -188,6 +188,7 @@ fi
 
 # basin effect in CyberShake versus basin depth
 if [ 1 -eq 1 ]; then
+    echo "Test CyberShake with basin depth"
     ifile0=$mapin1/Gkxmfs0/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs
     gawk '{print $1,$2,$4/1000,$5,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile0 > $tmp_ek.tmp
     if [ $flag4 != 'CyberShake' ]; then 
@@ -207,13 +208,14 @@ if [ 1 -eq 1 ]; then
     psxy $tmp_ek.z25 -JX$scale$unit/$ht$unit -R-0.1/7/-2.0/2.0 -Sc0.2 -W0.5p/0/0/0 -Ba1.0f0.5:"Z@-2.5@- (km)":/a0.5f0.1:"b(r)":WSne -Y-$y1$unit $more >> $psnam.ps 
     echo "-0.1 2.5 16 0 0 LM (c)" | pstext -R -J $more >> $psnam.ps 
 
-#    rm $tmp_ek.tmp $tmp_ek.z10 $tmp_ek.z25
+    #rm $tmp_ek.tmp 
+    rm $tmp_ek.z10 $tmp_ek.z25
 fi 
 
 ps2eps -q -l -f -R + -r 300 $psnam.ps
-#ps2pdf $psnam.ps $psnam.pdf
+ps2pdf $psnam.ps $psnam.pdf
 #open $psnam.pdf
-rm $psnam.ps 
+#rm $psnam.ps 
 
 # BA-Ref
 psnam=$plot2/Model.$period.BA.Ref.bs
@@ -261,7 +263,7 @@ grd2cpt $grdfile $cpt -S$min0/$max0/$dclr -L$min0/$max0 > $clr0
 pscontour $tmp_ek $reg $proj -C$clr0 -W0.5p $more >> $psnam.ps 
 
 ps2eps -q -l -f -R + -r 300 $psnam.ps
-#ps2pdf $psnam.ps $psnam.pdf
+ps2pdf $psnam.ps $psnam.pdf
 #open $psnam.pdf
 rm $psnam.ps 
 
@@ -416,8 +418,7 @@ END
 done 
 
 ps2eps -R + -q -l -f -r 300 $psnam.ps
-
-#ps2pdf $psnam.ps $psnam.pdf
+ps2pdf $psnam.ps $psnam.pdf
 #open $psnam.pdf
 rm $psnam.ps 
 
@@ -534,7 +535,7 @@ fi
     rm $tmp_ek $grdfile
 
     ps2eps -R + -q -l -f -r 300 $psnam.ps
-    #ps2pdf $psnam.ps $psnam.pdf
+    ps2pdf $psnam.ps $psnam.pdf
     #open $psnam.pdf
     rm $psnam.ps 
 

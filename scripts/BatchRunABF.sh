@@ -17,12 +17,14 @@ if [ $opt == 'ga' ]; then
     done 
 fi 
 
-if [ $opt == 'bcmap' ]; then 
+if [ $opt == 'bmap' ]; then 
     # GMT plots
     cd ./GkxmfsAnalysis 
     for mflag in 54
     do 
-	./model_Bs_SiteModel.gmt 35 5 3 1 3.00 $mflag BA All LocalModel 0 0.60 
-	./model_ks.gmt 35 5 3 1 3.00 BA Cks $mflag CyberShake 0 0.60 
+	./model_Bs_SiteModel.gmt 35 8 4 5 3.00 $mflag Ref 0 1.00_1.00 OnlyBs
+	./model_Bs_periods.gmt 35 6 4 7 $mflag CyberShake 0 1.00_1.00
+	./model_ks.gmt 35 5 3 1 3.00 BA Cks $mflag CyberShake 1.00_1.00 0   # 0 means plot all sources k(s), where Cks can be variance map (directivity)
+
     done 
 fi 
