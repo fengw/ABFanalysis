@@ -3,10 +3,41 @@ Purpose: Archive the CyberShake Results via ABF analysis besides of hazard curve
 
 ABF can show the CyberShake results in a way that decompose different model components and give a different veiw of CyberShake models. 
 
-
 Metting at 09/27/2016: 
 For CyberShake 14.2 study, produce the ABF maps and variance numbers/maps and show the basin and directivity effect, turn off basin/site effect in the reference model to make it basin effect, and other full, then choose to compare models. 
 Setup meeting with Tom and Scott for posting models once you have the results. (do it to make yourself valuable). 
+
+Meeting at 10/21/2016: 
+- A factor 
+  Used to test the mag-area scaling 
+  
+  1. CS1.0  (GP07, CVMS4)
+  2. CS13.4a (GP10, CVMS4)
+  3. CS13.4b (GP10, CVMH with GTL) 
+  4. CS14.2S4.26  (GP10, CVM-S4.26)
+  5. CS14.2H   (GP10, CVM-H without GTL) 
+  
+  Plot a values at variaous periods for different CyberShake model to see the changes in a value along time 
+  2-1 to see the impact of rupture generator changes
+  3-2 to see the impact of velocity differences 
+  4-2 to see the impact of velocity model updates (CVMs) 
+  5-3 to see the impact of velocity model updates (CVMH)
+  
+- Solve the issue for CS15.4
+  6. CS15.4 (higher frequency, new rupture generator GP2014, CVM-S4.26) 
+  Debug the rupture 271 (or get rid of it)
+  This can be used to see the impact of high frequency (a value at shorter periods should be brought up) 
+  and the impact of new rupture generator (hypocenter distribution), impacts on directivity (should be reduced)
+   
+- Compare NGA models with sigma and b-map 
+  With the same velocity model, old run with NGA1 and new run with NGA2 to compare their b-map and variance
+  in the ABF framework, to compare the NGA2 and NGA1 
+  
+- Keep in mind whether the rupture set determined from disaggragation of the old runs still applies to the new runs
+  convergence behavior 
+  (takes time)
+  
+  
 
 
 
