@@ -1,0 +1,6 @@
+# Model parameters:
+CS11: GP07 rupture generator, CVMS
+CS13.4a: GP10 rupture generator, CVMS
+CS13.4b: GP10 rupture generator, CVMH with GTL
+CS14.2a: GP10 rupture generator, CVMS4.26 
+CS14.2b: GP10 rupture generator, CVMH without GTL
