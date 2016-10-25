@@ -87,3 +87,42 @@ ax.yaxis.set_ticks_position('left')
 #ax1.yaxis.set_ticks_position('left')
 
 plt.show() 
+
+if 0: 
+    # plot residual a factor
+    import sys 
+    pathname = os.path.dirname(sys.argv[0]) 
+    inFile = os.path.join(pathname, 'afactor_summary.dat')
+    fid = open(inFile, 'r')
+    line = fid.readline() 
+    outData = {}
+    while line: 
+        if '#' in line: 
+            spl = line.strip().split(';')[0][1:]
+            outData[spl] = []
+            for i in range(4): 
+                line = fid.readline()
+                spl1 = line.strip().split(',')
+                ngaAve = 0.25*(sum([float(tmp) for tmp in spl1[:4]]))
+                outData[spl].append(float(spl1[4])-ngaAve)  # residual a value (ln)
+        line = fid.readline() 
+    fid.close()
+    
+    # plot 
+    for imodel in range(len(modelKeys)): 
+        modelName = modelKeys[imodel] 
+        tmpData = outData[modelName] 
+        if modelName in ['CS11','CS13.4a','CS13.4b']: 
+            NGAtype = 'NGA08ave'
+        else: 
+            NGAtype = 'NGA14ave'
+        #ax.loglog([2,3,5,10],np.exp(outData[modelName]),clrs[imodel]+'-',marker='o',lw=1.5, label=modelName+'-'+NGAtype)
+        ax.plot([2,3,5,10],outData[modelName],clrs[imodel]+'-',marker='o',lw=1.5, label=modelName+'-'+NGAtype)
+        
+    ax.grid(b=True,which='minor') 
+    ax.grid(b=True,which='major')
+    ax.set_xlabel('Periods (s)')
+    ax.set_xlim([1.8,11])
+    ax.set_ylabel('residual a factor')
+    ax.legend(loc=0)    
+    fig.savefig(os.path.join(pathname,'residualAfactor.png'),dpi=600)
