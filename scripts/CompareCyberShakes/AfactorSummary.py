@@ -85,5 +85,5 @@ ax.yaxis.set_ticks_position('left')
 #ax1.yaxis.set_major_locator( majorLocator )
 #ax1.yaxis.set_major_formatter(majorFormatter)
 #ax1.yaxis.set_ticks_position('left')
-
+fig.savefig(os.path.join(outpth, 'afactor_summary.png'),dpi=600)
 plt.show() 
