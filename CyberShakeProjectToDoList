@@ -25,10 +25,14 @@ Meeting at 10/21/2016:
   
 - Solve the issue for CS15.4
   6. CS15.4 (higher frequency, new rupture generator GP2014, CVM-S4.26) 
-  Debug the rupture 271 (or get rid of it)
+  Debug the rupture 271 (solved)
+  
+  Program running (almost finished)
   This can be used to see the impact of high frequency (a value at shorter periods should be brought up) 
   and the impact of new rupture generator (hypocenter distribution), impacts on directivity (should be reduced)
    
+  It seems the calculation of NGA2 takes the most of time (find the reason), new modules, directivity is ok it seems!
+
 - Compare NGA models with sigma and b-map 
   With the same velocity model, old run with NGA1 and new run with NGA2 to compare their b-map and variance
   in the ABF framework, to compare the NGA2 and NGA1 
@@ -40,7 +44,13 @@ Meeting at 10/21/2016:
 - write a report to summarize result and put your comments to illustrate the figures. 
 
   
-  
+Meeting at 2/15/2017 
+Preparation: 
+1. CS15.4 is running almost finished, and NGA2 calculation takes long time, I am going to check if using NGA1 might fast things up, 
+   remember distinguish model IDs (by including the NGA model index 1 or 2, e.g. 541 or 542). I remember using NGA1 does take less time.
+2. Setup the workflow on geo system (with Java, matlab, python, and necessary packages), since the personal computer takes a lot of memory 
+3. Other needs for writing the paper.
+
 
 
 
