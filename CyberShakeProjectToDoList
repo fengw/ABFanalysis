@@ -52,7 +52,18 @@ Preparation:
 3. Other needs for writing the paper.
 
 Action items: 
+1. Check other CS model with NGA2 (which is faster)
+2. make the program work better 
+
 Get all B-maps and pass them to Scott for posting and discussion.
 
+In order to run ERF36 at 1.0s, we need directivity at 1.0s for all models (but why only ASK has problem?)
+
+
+meeting at 3/8/2017 
+0. get all CS models Bmap, A value, variance
+1. Check the download process of 36 8 6 5 by using 10 and plot rupture 0 to see the ground motion as function of hypocenter index (should be the same as Scott)
+2. do the ABF for CS15.4 (above downloads)
+3. get the B-map and Avalue, and variance plots for Tom 
 
 
