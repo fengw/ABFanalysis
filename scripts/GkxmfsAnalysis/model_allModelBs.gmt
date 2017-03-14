@@ -1,0 +1,154 @@
+#!/bin/bash
+# plot B(s) function or differential B(s) between models
+# specified period (one period)
+eid=$1
+sgtid=$2
+rsid=$3    # rup_scenario_id
+vid=$4     # vel_id
+
+prefix=ERF${eid}_SGT${sgtid}_RupVar${rsid}_Vel$vid
+
+period=$5  # period
+flag3=$6   # Model Flag
+
+logscale=0
+sigmaD='1.00_1.00'   # weighting function used in ABF  # format: 0.10_0.10
+ngaModel=$7  # 1: NGA08, 2:NGA14
+csrun=$8    # CS-LA1.0 similar
+
+# for NGA-14
+if [ $ngaModel == 2 ]; then
+wrk=/Users/fengw/work/Project/ABFanalysis
+texts=( 'BA14' 'CB14' 'CY14' 'AS14' $csrun 'BA14base')
+fi 
+
+if [ $ngaModel == 1 ]; then 
+# for NGA-08
+wrk=/Users/fengw/work/Project/CyberShake_analysis
+texts=( 'BA08' 'CB08' 'CY08' 'AS08' $csrun 'BA08base')
+fi
+
+mapin=$wrk/scripts/map_input
+mapin1=$mapin/Model_Rups$flag3/$prefix
+
+# put all results in one location
+plot0=/Users/fengw/work/Project/ABFanalysis/products/Bmap
+if [ ! -d $plot0 ]; then
+    mkdir $plot0
+fi
+plot1=$plot0/$csrun
+if [ ! -d $plot1 ]; then
+    mkdir $plot1
+fi
+
+plot2=$plot0/NGAWest$ngaModel
+if [ ! -d $plot2 ]; then
+    mkdir $plot2
+fi
+
+# tmp file
+tmp_ek=$mapin/tmp.xyz
+grdfile=$mapin/tmp.grd
+
+# GMT set
+if [ 0 -eq 1 ]
+then
+    gmtset PAGE_ORIENTATION portrait 
+
+    width=8.5  # for protrait
+    height=11.0
+    begin='-P -K'
+    more='-P -K -O'
+    end='-P -O'
+else
+    gmtset PAGE_ORIENTATION landscape
+    width=11.0
+    height=8.5
+    begin='-K'
+    more='-K -O'
+    end='-O'
+fi
+unit=i   # inch
+
+Annot=14
+gmtset BASEMAP_TYPE plain
+gmtset ANNOT_FONT_SIZE_PRIMARY $Annot
+gmtset ANNOT_OFFSET_PRIMARY    0.05c
+gmtset ANNOT_FONT_SIZE_SECONDARY  $Annot
+gmtset ANNOT_OFFSET_SECONDARY  0.05c
+
+gmtset HEADER_FONT 0
+gmtset HEADER_FONT_SIZE 10
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+
+# labels
+gmtset LABEL_FONT 0
+gmtset LABEL_FONT_SIZE 14
+gmtset LABEL_OFFSET 0.1c    # for x,y,and colorbar label offset
+
+# ======================================
+# Plot B(s) of all models (include Ref) 
+# ======================================
+echo "plot B(s) of all models"
+ifile=$mapin1/Gkxmfs/Bs/Sigma$sigmaD/CyberShake.NGAs.$period.bs
+
+reg=$(minmax -I.01 $ifile)
+
+scale=6 
+proj=-JM$scale$unit
+inc=( 0.04 0.004 )   #inc_x, inc_y (make them same)
+
+gawk '{print $1,$2,$10-$6,$10-$7,$10-$8,$10-$9,$10,$10-$11}' $ifile > $tmp_ek.tmp
+
+clr0=$mapin/absolute_Bs.cpt
+cmapname='bwr'
+max0=2.0
+min0=-2.0
+sigma=0.1
+npoints=11
+python makecpt0.py $max0 $min0 0.0 $npoints $sigma $cmapname $clr0 $logscale
+
+icout=-1
+for isub in 3 4 5 6 7 8
+do 
+    icout=$(expr $icout+1 | bc)
+    if [ $isub -eq 7 ]; then 
+	psnam=$plot1/${csrun}_${period}_Bs 
+    else 
+	psnam=$plot2/${texts[$icout]}_${period}_Bs 
+    fi 
+    
+    if [ $isub != 7 ]; then 
+	if [ "$csrun" != "CS-LA1.0" ] && [ "$csrun" != "CS-LA14.2.c" ]; then 
+	    echo "Skip NGA model plots"
+	    continue
+	fi 
+    fi 
+
+    gawk '{print $1,$2,$'$isub'}' $tmp_ek.tmp > $tmp_ek
+
+    xyz2grd $tmp_ek $reg -I${inc[0]} -F -G$grdfile
+    triangulate $tmp_ek $reg -I${inc[1]} -G$grdfile > /dev/null
+    grdfilter $grdfile -D1 -Fg5 -G$grdfile.2
+    mv $grdfile.2 $grdfile
+
+    grdimage $grdfile $reg $proj -C$clr0 $begin > $psnam.ps
+    pscoast $reg $proj -Dh -W0.5p/0/0/0 -Ba1.0f0.1sWNe -A100 -Na -Slightblue $more >> $psnam.ps
+    echo "-118.0 34.8 14 0 0 LM ${texts[$icout]}" | pstext $reg $proj $more >> $psnam.ps 
+
+# add legend 
+if [ 1 -eq 1 ]; then
+cat > ./legendtext << DELIM
+G -0.01i 
+B $clr0 0.05i 0.14i -Ba1.0f0.2:"B(r)":
+G -0.05i 
+DELIM
+pslegend ./legendtext -R -J -D-119.33/33.3/4.3/1.8/LB -Gwhite -F -L1.25 $more >> $psnam.ps 
+rm $grdfile ./legendtext
+fi 
+
+ps2eps -q -l -f -R + -r 300 $psnam.ps
+ps2pdf $psnam.ps $psnam.pdf
+rm $psnam.ps $psnam.eps
+done

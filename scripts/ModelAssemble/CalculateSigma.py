@@ -5,11 +5,14 @@ import optparse
 import numpy as np 
 import matplotlib.pyplot as plt 
 from scipy import stats 
+import time 
 
 from pyABF import *
 from pynga import * 
 
 from my_util.numer import interp 
+
+tic = time.time()
 
 # Basic parameters
 parser = optparse.OptionParser() 
@@ -25,15 +28,18 @@ parser.add_option('-G','--Gflag', dest='Gflag', type='int', help='parameters con
 CSdict = {'(35,5,3,1)':'CS11',
           '(35,7,4,1)':'CS13.1',
 	  '(35,7,4,4)':'CS13.2',
+	  '(35,8,4,8)':'CSbbp1D',
 	  '(35,8,4,5)':'CS14S4.26',
 	  '(35,6,4,7)':'CS14.2CVMH',
-	  '(35,8,4,8)':'CSbbp1D',
+	  '(36,8,6,5)':'CS15.4',
 	  }
 
 # use in check inputs
 parser.print_help() 
 
 (options, args) = parser.parse_args() 
+
+sigmaMap = True  # do the interpolation 
 
 mflag = options.mflag 
 rup_model_id = options.rup_model_id 
@@ -43,8 +49,18 @@ sigma = '%s'%options.sigma
 Gflag = options.Gflag
 #sid = options.sid 
 
+CSmodel = CSdict['(%s,%s,%s,%s)'%(erf_id,sgt_id,rvid,vel_id)]
+if CSmodel in ['CS14S4.26', 'CS14.3CVMH', 'CS15.4', ]: 
+    ABFstr = 'ABFanalysis' 
+    ngaModel = '14'
+else: 
+    ABFstr = 'CyberShake_analysis' 
+    ngaModel = '08'
+
+wrk = '/Users/fengw/work/Project/%s'%ABFstr 
+
 # Inputs
-mapin = '/Users/fengw/work/Project/ABFanalysis/scripts/map_input/'
+mapin = '/Users/fengw/work/Project/%s/scripts/map_input/'%ABFstr
 Gpth0 = mapin + 'Model_Rups%s/ERF%s_SGT%s_RupVar%s_Vel%s/Gkxmfs0/'%(mflag, erf_id, sgt_id, rvid, vel_id)
 Epth = Gpth0 + 'Ekxms/Sigma%s'%(sigma)
 
@@ -54,7 +70,8 @@ Dpth = Gpth + 'Dkxs/Sigma%s'%(sigma)
 Cpth = Gpth + 'Cks/Sigma%s'%(sigma)
 Bpth = Gpth + 'Bs/Sigma%s'%(sigma) 
 
-mapout0 = '/Users/fengw/work/Project/ABFanalysis/scripts/map_input/' 
+mapout0 = '/Users/fengw/work/Project/%s/scripts/map_input/'%ABFstr
+
 mapout1 = mapout0 + 'Model_Rups%s'%mflag 
 mapout2 = mapout1 + '/ERF%s_SGT%s_RupVar%s_Vel%s'%(erf_id,sgt_id,rvid,vel_id ) 
 mapout3 = mapout2 + '/Gkxmfs' 
@@ -85,11 +102,10 @@ for i in xrange( inputs.shape[0] ):
     sidhypo[str(int(inputs[i,0]))] = inputs[i,2]   # number of hypocenters
 
 # source weighting function 
-wrk = '/Users/fengw/work/Project/ABFanalysis'
 if mflag[0] == '5': 
     # Test same disaggregation condition, but different Ntop (number of sources used) 
     IML = '0.3_G'   # consider rock sites or choose large IML value
-    Str0 = 'DisaggSources_ERF%s_'%(erf_id)
+    Str0 = 'DisaggSources_ERF%s_'%(35)
     Str1 = 'DisaggIML_' + IML 
     Str2 = '_SA_3sec.txt'
 
@@ -103,7 +119,8 @@ if mflag[0] == '5':
 CSmodel = CSdict['(%s,%s,%s,%s)'%(erf_id,sgt_id,rvid,vel_id)]
 print 'CyberShake Model:', CSmodel
 erf_id, sgt_id, rvid, vel_id = rup_model_id
-soutpth = '/Users/fengw/work/Project/ABFanalysis/scripts/ModelAssemble/inputs/ABFvariances_NGA14/%s'%CSmodel
+
+soutpth = '/Users/fengw/work/Project/ABFanalysis/scripts/ModelAssemble/inputs/ABFvariances_NGA%s/%s'%(ngaModel, CSmodel)
 if not os.path.exists(soutpth):
     os.mkdir(soutpth) 
 if Gflag: 
@@ -222,34 +239,38 @@ for isid in xrange( len(sids) ):
     tmp_sd_xs = np.sqrt( np.average( tmp_ekxms**2, axis=1,weights=pdf_m) )
     tmp_sd0 = np.average( tmp_sd_xs, axis=0, weights = pdf_x ) 
     tmp_vd0 = np.average( tmp_sd_xs**2, axis=0, weights = pdf_x ) 
-    tmp_sd = []; tmp_vd = []
-    for imodel in xrange( tmp_sd0.shape[1] ):
-	NewValue = interp( lons0, lats0, tmp_sd0[:,imodel], SiteLon1D, SiteLat1D, eps=eps, method=method )
-        tmp_sd.append( NewValue ) 
-	NewValue = interp( lons0, lats0, tmp_vd0[:,imodel], SiteLon1D, SiteLat1D, eps=eps, method=method )
-        tmp_vd.append( NewValue ) 
     
-    sigma_M_ks.append( tmp_vd )    # variance unit
+    if sigmaMap:
+	tmp_sd = []; tmp_vd = []
+	for imodel in xrange( tmp_sd0.shape[1] ):
+	    NewValue = interp( lons0, lats0, tmp_sd0[:,imodel], SiteLon1D, SiteLat1D, eps=eps, method=method )
+	    tmp_sd.append( NewValue ) 
+	    NewValue = interp( lons0, lats0, tmp_vd0[:,imodel], SiteLon1D, SiteLat1D, eps=eps, method=method )
+	    tmp_vd.append( NewValue ) 
+	
+	sigma_M_ks.append( tmp_vd )    # variance unit
 
-    pafile = mapout + '/CyberShake.NGAs.%s.Source%s.Seks'%(T,sid)
-    fid = open( pafile, 'w' ) 
-    Nrow = len(SiteLon1D)
-    for irow in xrange( Nrow ): 
-	fid.write( '%s %s %s %s %s %s %s %s\n'%(SiteLon1D[irow],SiteLat1D[irow], \
-		   tmp_sd[0][irow], 
-		   tmp_sd[1][irow], 
-		   tmp_sd[2][irow], 
-		   tmp_sd[3][irow], 
-		   tmp_sd[4][irow], 
-		   tmp_sd[5][irow] )) 
-    fid.close() 
+	pafile = mapout + '/CyberShake.NGAs.%s.Source%s.Seks'%(T,sid)
+	fid = open( pafile, 'w' ) 
+	Nrow = len(SiteLon1D)
+	for irow in xrange( Nrow ): 
+	    fid.write( '%s %s %s %s %s %s %s %s\n'%(SiteLon1D[irow],SiteLat1D[irow], \
+		       tmp_sd[0][irow], 
+		       tmp_sd[1][irow], 
+		       tmp_sd[2][irow], 
+		       tmp_sd[3][irow], 
+		       tmp_sd[4][irow], 
+		       tmp_sd[5][irow] )) 
+	fid.close() 
+    else: 
+	sigma_M_ks.append(tmp_vd0)
 
 sigma_M_ks = np.array(sigma_M_ks)  # dimension: [Nsid, Nmodel, Nsta ]
 
 # compute the average 
 pdf_s = np.repeat( 1./sigma_M_ks.shape[2], sigma_M_ks.shape[2] )
 sigma_M = np.average( np.average( sigma_M_ks, axis=0, weights = srcPDF ), axis=1, weights = pdf_s )
-print 'sigma_M', mflag, T, rup_model_id, np.sqrt( sigma_M )
+#print 'sigma_M', mflag, T, rup_model_id, np.sqrt( sigma_M )
 
 # ===================
 # Dkxs for sigma_D
@@ -298,19 +319,20 @@ for isid in xrange( len(sids) ):
     tmp_sd = np.sqrt( np.average( tmp_dkxs**2, axis=0,weights=pdf_x) )
     sigma_D_ks.append( tmp_sd**2 )   # variance 
 
-    pafile = mapout + '/CyberShake.NGAs.%s.Source%s.SdksD'%(T,sid)
-    fid = open( pafile, 'w' ) 
-    Nrow = len(SiteLon1D)
-    for irow in xrange( Nrow ): 
-	fid.write( '%s %s %s %s %s %s %s %s\n'%(SiteLon1D[irow],SiteLat1D[irow], \
-		   tmp_sd[irow, 0], 
-		   tmp_sd[irow, 1], 
-		   tmp_sd[irow, 2], 
-		   tmp_sd[irow, 3], 
-		   tmp_sd[irow, 4], 
-		   tmp_sd[irow, 5], 
-		    )) 
-    fid.close() 
+    if sigmaMap:
+	pafile = mapout + '/CyberShake.NGAs.%s.Source%s.SdksD'%(T,sid)
+	fid = open( pafile, 'w' ) 
+	Nrow = len(SiteLon1D)
+	for irow in xrange( Nrow ): 
+	    fid.write( '%s %s %s %s %s %s %s %s\n'%(SiteLon1D[irow],SiteLat1D[irow], \
+		       tmp_sd[irow, 0], 
+		       tmp_sd[irow, 1], 
+		       tmp_sd[irow, 2], 
+		       tmp_sd[irow, 3], 
+		       tmp_sd[irow, 4], 
+		       tmp_sd[irow, 5], 
+			)) 
+	fid.close() 
 
 # compute average 
 sigma_D_ks = np.array(sigma_D_ks) 
@@ -357,25 +379,25 @@ tmp_ks = np.array( tmp_ks )
 tmp_sd = np.sqrt( np.average( tmp_ks**2, axis=0, weights=srcPDF) )
 sigma_C_s = tmp_sd**2   # variance 
 
-pafile = mapout + '/CyberShake.NGAs.%s.SCs'%T
-fid = open( pafile, 'w' ) 
-Nrow = len(SiteLon1D)
-for irow in xrange( Nrow ): 
-    fid.write( '%s %s %s %s %s %s %s %s\n'%(SiteLon1D[irow],SiteLat1D[irow], \
-	       tmp_sd[irow, 0], 
-	       tmp_sd[irow, 1], 
-	       tmp_sd[irow, 2], 
-	       tmp_sd[irow, 3], 
-	       tmp_sd[irow, 4], 
-	       tmp_sd[irow, 5], 
-		)) 
-fid.close() 
+if sigmaMap:
+    pafile = mapout + '/CyberShake.NGAs.%s.SCs'%T
+    fid = open( pafile, 'w' ) 
+    Nrow = len(SiteLon1D)
+    for irow in xrange( Nrow ): 
+	fid.write( '%s %s %s %s %s %s %s %s\n'%(SiteLon1D[irow],SiteLat1D[irow], \
+		   tmp_sd[irow, 0], 
+		   tmp_sd[irow, 1], 
+		   tmp_sd[irow, 2], 
+		   tmp_sd[irow, 3], 
+		   tmp_sd[irow, 4], 
+		   tmp_sd[irow, 5], 
+		    )) 
+    fid.close() 
 
 # compute average 
 pdf_s = np.repeat( 1./sigma_C_s.shape[0], sigma_C_s.shape[0] )
 sigma_C = np.average( sigma_C_s, axis=0, weights = pdf_s )
 print 'sigma_C', mflag, T, rup_model_id, np.sqrt( sigma_C )
-
 
 # ==================
 # Sigma_B 
@@ -406,17 +428,18 @@ pdf_s = list(np.repeat(1./bs0.shape[0],bs0.shape[0]))
 tmp_sd = np.sqrt( np.average( bs0**2, axis=0, weights=pdf_s ) )
 sigma_B = tmp_sd**2 
 
-pafile = mapout + '/CyberShake.NGAs.%s.SbsB'%(T)
-fid = open( pafile, 'w' ) 
-fid.write( '%s %s %s %s %s %s\n'%( \
-	   tmp_sd[0], 
-	   tmp_sd[1], 
-	   tmp_sd[2], 
-	   tmp_sd[3], 
-	   tmp_sd[4], 
-	   tmp_sd[5], 
-	    )) 
-fid.close() 
+if sigmaMap:
+    pafile = mapout + '/CyberShake.NGAs.%s.SbsB'%(T)
+    fid = open( pafile, 'w' ) 
+    fid.write( '%s %s %s %s %s %s\n'%( \
+	       tmp_sd[0], 
+	       tmp_sd[1], 
+	       tmp_sd[2], 
+	       tmp_sd[3], 
+	       tmp_sd[4], 
+	       tmp_sd[5], 
+		)) 
+    fid.close() 
 
 print 'sigma_B', mflag, T, rup_model_id, np.sqrt( sigma_B )
 
@@ -453,3 +476,6 @@ sfid.write('NGA-rms, %s, %s, %s, %s, %s, %s\n'%(NGA_rms[0],NGA_rms[1],NGA_rms[2]
 icol = 4
 sfid.write('%s, %s,%s,%s,%s,%s,%s\n'%(CSmodel, sigma_ABF[0,icol],sigma_ABF[1,icol],sigma_ABF[2,icol], sigma_ABF[3,icol], sigma_ABF[4,icol], sigma_ABF[5,icol]))
 sfid.close() 
+
+print 'time elapsed: %s'%(time.time()-tic) 
+
