@@ -14,6 +14,8 @@ from my_util.numer import interp
 
 tic = time.time()
 
+# Check if we need to do the interpolation (maybe just save the uninterpolated one and let GMT do the interpolation)
+
 # Basic parameters
 parser = optparse.OptionParser() 
 parser.add_option('-m','--model-flag', dest='mflag', type='string', help='model selection') 
