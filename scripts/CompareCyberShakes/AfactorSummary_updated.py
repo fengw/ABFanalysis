@@ -25,13 +25,13 @@ modelDict = {
 	'CS-LA1.0':[35,5,3,1],   
 	'CS-LA13.4.a':[35,7,4,1],  
 	'CS-LA13.4.b':[35,7,4,4], 
-	'CS-LA14.2.b':[35,8,4,8],
-	'CS-LA14.2.c':[35,6,4,7],
-	'CS-LA14.2.d':[35,8,4,5],
+	'CS-LA14.2.a':[35,8,4,5],
+	'CS-LA14.2.b':[35,6,4,7],
+	'CS-LA14.2.c':[35,8,4,8],
 	'CS-LA15.4':[36,8,6,5], 
 	}
 
-modelKeys = ['CS-LA1.0','CS-LA13.4.a','CS-LA13.4.b','CS-LA14.2.b','CS-LA14.2.c','CS-LA14.2.d','CS-LA15.4']
+modelKeys = ['CS-LA1.0','CS-LA13.4.a','CS-LA13.4.b','CS-LA14.2.a','CS-LA14.2.b','CS-LA14.2.c','CS-LA15.4']
 Nmodels = len(modelKeys) 
 scalarMap = LineColorCoding(Nmodels)
 
@@ -67,17 +67,22 @@ if opt == 'Afactor':
 	outData[model] = []
 	print 'processing %s'%model 
 
-	if model in ['CS-LA14.2.c','CS-LA14.2.d','CS-LA15.4', ]:
+	if model in ['CS-LA14.2.a','CS-LA14.2.b','CS-LA15.4', ]:
 	    inPath = '/Users/fengw/work/Project/ABFanalysis/scripts/map_input/Model_Rups54' 
 	else: 
 	    inPath = '/Users/fengw/work/Project/CyberShake_analysis/scripts/map_input/Model_Rups54' 
+	
+	if model == 'CS-LA15.4': 
+	    prefix1 = 'ERF%s_SGT%s_RupVar%s_Vel%s_NGA14'%(erfID, sgtID, rupVarID, velID) 
+	    inFullPath1 = os.path.join(inPath, prefix1, 'Gkxmfs0/A/Sigma1.00_1.00') 
+
 	prefix = 'ERF%s_SGT%s_RupVar%s_Vel%s'%(erfID, sgtID, rupVarID, velID) 
 	inFullPath = os.path.join(inPath, prefix, 'Gkxmfs0/A/Sigma1.00_1.00') 
 
 	for T in ['1.00', '2.00','3.00','5.00','10.00']: 
 	    if T=='1.00' and model!='CS-LA15.4': 
 		continue 
-
+            
 	    inFile0 = 'CyberShake.NGAs.%s.a'%T 
 	    fidin = open(os.path.join(inFullPath, inFile0), 'r') 
 	    line = fidin.readline() 
@@ -85,25 +90,45 @@ if opt == 'Afactor':
 		line = fidin.readline() 
 	    spl = line.strip().split()
 	    str1 = []
-	    tmp1 = []; tmp2 = []
+	    tmp1 = []
 	    for i in range(len(spl)): 
 		if i == 4:
 		    outData[model].append(float(spl[4]))
 		    str1.append(spl[4])
 		else: 
 		    # NGA all based on CVMS4.26
-		    if model == 'CS-LA13.4.a': 
-			tmp1.append(float(spl[4])-float(spl[i])) 
 		    if model == 'CS-LA15.4':
-			tmp2.append(float(spl[4])-float(spl[i]))
+			tmp1.append(float(spl[4])-float(spl[i]))
 		    
 		    str1.append(str(float(spl[4])-float(spl[i])))
 	    fidout.write(','.join(tuple(str1))+'\n') 
 	    fidin.close() 
 
-	    if model == 'CS-LA13.4.a': 
-		NGA08ave.append(sum(np.exp(tmp1))/4.) 
+	    if model == 'CS-LA15.4': 
+		# NGA14 (use inFullPath1)
+		inFile0 = 'CyberShake.NGAs.%s.a'%T 
+		fidin = open(os.path.join(inFullPath1, inFile0), 'r') 
+		line = fidin.readline() 
+		if '#' in line: 
+		    line = fidin.readline() 
+		spl = line.strip().split()
+		tmp2 = []
+		for i in range(len(spl)): 
+		    if i == 4:
+			continue
+			#outData[model].append(float(spl[4]))
+			#str1.append(spl[4])
+		    else: 
+			# NGA all based on CVMS4.26
+			if model == 'CS-LA15.4':
+			    tmp2.append(float(spl[4])-float(spl[i]))
+			
+			#str1.append(str(float(spl[4])-float(spl[i])))
+		#fidout.write(','.join(tuple(str1))+'\n') 
+		fidin.close() 
+	    
 	    if model == 'CS-LA15.4':
+		NGA08ave.append(sum(np.exp(tmp1))/4.) 
 		NGA14ave.append(sum(np.exp(tmp2))/4.) 
 
 	if model != 'CS-LA15.4':
@@ -114,7 +139,7 @@ if opt == 'Afactor':
     fidout.close()
 
     # plot NGA08 
-    ax.loglog([2,3,5,10], NGA08ave,'k--',lw=1.5,label='NGA08ave') 
+    ax.loglog([1,2,3,5,10], NGA08ave,'k--',lw=1.5,label='NGA08ave') 
     ax.loglog([1,2,3,5,10], NGA14ave,'k-o',lw=1.5,label='NGA14ave') 
 
     from matplotlib.ticker import LogLocator, FormatStrFormatter
