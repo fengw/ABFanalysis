@@ -1,0 +1,101 @@
+# SourceID  SourceName  Contribution(%)
+85,  S. San Andreas;PK+CH+CC+BB+NM+SM,  12.0915319149
+86,  S. San Andreas;PK+CH+CC+BB+NM+SM+NSB,  8.52957446809
+112,  San Jacinto;SBV+SJV+A+C,  4.78229787234
+232,  Palos Verdes Connected,  3.8965106383
+10,  Elsinore;GI+T+J+CM,  3.54965957447
+64,  S. San Andreas;CH+CC+BB+NM+SM,  3.45872340426
+254,  San Cayetano,  3.40761702128
+231,  Palos Verdes,  3.14676595745
+273,  Sierra Madre Connected,  2.4789787234
+271,  Sierra Madre,  2.13855319149
+218,  Newport Inglewood Connected alt 1,  2.02442553191
+219,  Newport Inglewood Connected alt 2,  1.98774468085
+87,  S. San Andreas;PK+CH+CC+BB+NM+SM+NSB+SSB,  1.96421276596
+255,  San Gabriel,  1.61268085106
+267,  Santa Susana, alt 1,  1.43774468085
+15,  Elsinore;T+J+CM,  1.27876595745
+8,  Elsinore;GI+T,  1.24165957447
+89,  S. San Andreas;PK+CH+CC+BB+NM+SM+NSB+SSB+BG+CO,  1.23323404255
+93,  S. San Andreas;SM+NSB+SSB+BG,  1.16914893617
+88,  S. San Andreas;PK+CH+CC+BB+NM+SM+NSB+SSB+BG,  1.16242553191
+75,  S. San Andreas;NM+SM+NSB+SSB+BG+CO,  1.07438297872
+66,  S. San Andreas;CH+CC+BB+NM+SM+NSB+SSB,  1.06076595745
+55,  S. San Andreas;CC+BB+NM+SM,  1.01540425532
+99,  San Jacinto;A+C,  0.980382978723
+247,  Raymond,  0.965063829787
+184,  Hollywood,  0.919744680851
+257,  San Joaquin Hills,  0.893872340426
+265,  Santa Monica Connected alt 2,  0.887914893617
+94,  S. San Andreas;SM+NSB+SSB+BG+CO,  0.865744680851
+49,  S. San Andreas;BB+NM+SM+NSB+SSB+BG+CO,  0.865234042553
+9,  Elsinore;GI+T+J,  0.863489361702
+148,  Coronado Bank,  0.857191489362
+226,  Oak Ridge (Onshore),  0.834595744681
+57,  S. San Andreas;CC+BB+NM+SM+NSB+SSB,  0.830085106383
+20,  Elsinore;W+GI+T+J+CM,  0.811744680851
+58,  S. San Andreas;CC+BB+NM+SM+NSB+SSB+BG,  0.720978723404
+92,  S. San Andreas;SM+NSB+SSB,  0.720765957447
+56,  S. San Andreas;CC+BB+NM+SM+NSB,  0.676042553191
+215,  Newport-Inglewood, alt 1,  0.657021276596
+124,  Elsinore,  0.641659574468
+283,  Verdugo,  0.623319148936
+208,  Malibu Coast, alt 2,  0.606765957447
+242,  Puente Hills,  0.583446808511
+25,  Garlock;GE+GC+GW,  0.579063829787
+263,  Santa Monica, alt 2,  0.561829787234
+16,  Elsinore;W,  0.560808510638
+115,  San Jacinto;SBV+SJV+A+CC+B+SM,  0.559872340426
+131,  Anacapa-Dume, alt 1,  0.549234042553
+217,  Newport-Inglewood (Offshore),  0.544680851064
+74,  S. San Andreas;NM+SM+NSB+SSB+BG,  0.537106382979
+19,  Elsinore;W+GI+T+J,  0.528510638298
+272,  Sierra Madre (San Fernando),  0.525787234043
+270,  Santa Ynez Connected,  0.515319148936
+264,  Santa Monica Connected alt 1,  0.514978723404
+216,  Newport-Inglewood, alt 2,  0.51485106383
+22,  Garlock;GC+GW,  0.481829787234
+84,  S. San Andreas;PK+CH+CC+BB+NM,  0.468723404255
+244,  Puente Hills (LA),  0.467872340426
+73,  S. San Andreas;NM+SM+NSB+SSB,  0.459276595745
+110,  San Jacinto;SBV+SJV,  0.43570212766
+114,  San Jacinto;SBV+SJV+A+CC+B,  0.418085106383
+91,  S. San Andreas;SM+NSB,  0.385234042553
+118,  San Jacinto;SJV+A+C,  0.384723404255
+128,  S. San Andreas,  0.366595744681
+274,  Simi-Santa Rosa,  0.349489361702
+78,  S. San Andreas;NSB+SSB+BG,  0.346127659574
+111,  San Jacinto;SBV+SJV+A,  0.327404255319
+59,  S. San Andreas;CC+BB+NM+SM+NSB+SSB+BG+CO,  0.326893617021
+45,  S. San Andreas;BB+NM+SM,  0.312765957447
+227,  Oak Ridge Connected,  0.308042553191
+268,  Santa Ynez (East),  0.302765957447
+79,  S. San Andreas;NSB+SSB+BG+CO,  0.297106382979
+158,  Elysian Park (Upper),  0.276468085106
+261,  Santa Cruz Island,  0.268255319149
+113,  San Jacinto;SBV+SJV+A+CC,  0.267744680851
+149,  Cucamonga,  0.258382978723
+144,  Chino, alt 2,  0.254085106383
+47,  S. San Andreas;BB+NM+SM+NSB+SSB,  0.245957446809
+18,  Elsinore;W+GI+T,  0.212808510638
+143,  Chino, alt 1,  0.211659574468
+96,  S. San Andreas;SSB+BG,  0.20314893617
+132,  Anacapa-Dume, alt 2,  0.189829787234
+251,  Rose Canyon,  0.185191489362
+223,  Northridge,  0.16914893617
+243,  Puente Hills (Coyote Hills),  0.156042553191
+77,  S. San Andreas;NSB+SSB,  0.145872340426
+14,  Elsinore;T+J,  0.14370212766
+248,  Red Mountain,  0.13514893617
+121,  San Jacinto;SJV+A+CC+B+SM,  0.135063829787
+72,  S. San Andreas;NM+SM+NSB,  0.120382978723
+97,  S. San Andreas;SSB+BG+CO,  0.120127659574
+17,  Elsinore;W+GI,  0.108
+71,  S. San Andreas;NM+SM,  0.105319148936
+120,  San Jacinto;SJV+A+CC+B,  0.101361702128
+130,  San Jacinto (SB to C),  0.100127659574
+245,  Puente Hills (Santa Fe Springs),  0.099914893617
+117,  San Jacinto;SJV+A,  0.0882553191489
+83,  S. San Andreas;PK+CH+CC+BB,  0.0696595744681
+207,  Malibu Coast, alt 1,  0.0689361702128
+234,  Pinto Mtn,  0.0679574468085
