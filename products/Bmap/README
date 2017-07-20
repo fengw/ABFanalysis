@@ -2,3 +2,4 @@ I only put T=3.0 B(s) but all other periods can be generated as well.
 all maps have the same scale -2 to 2 
 
 In each subfolder, the dat file has the raw values used to produce the pdf (figure) file.
+BA08base and BA14base is the Bmap without consideration of site term in BA 08 and 14 models
