@@ -10,9 +10,9 @@ mappedNameDict = {
 	'CS11': 'CS-LA1.0', 
 	'CS13.1': 'CS-LA13.4a',
 	'CS13.2': 'CS-LA13.4b',
-	'CSbbp1D': 'CS-LA14.2.b',
-	'CS14.2CVMH': 'CS-LA14.2.c',
-	'CS14S4.26': 'CS-LA14.2.d',
+	'CSbbp1D': 'CS-LA14.2.c',
+	'CS14.2CVMH': 'CS-LA14.2.b',
+	'CS14S4.26': 'CS-LA14.2.a',
 	'CS15.4': 'CS-LA15.4',
 	}
 
@@ -27,6 +27,7 @@ G_colorsF = ['r','#FF8C00', '#FFFF00', '#7CFC00','#4682B4']  # stack face color
 G_colorsE = 5*['k']
 G_hatchs = ['','','','','']
 G_labels = [r'${\sigma}^2_B$',r'${\bar\sigma}^2_C$',r'${\bar\sigma}^2_D$',r'${\bar\sigma}^2_M$',r'${\bar\sigma}^2_F$ or ${\sigma}^2_T$'] 
+G_colNames = ['var_B','var_C','var_D','var_M','var_F']
 
 g_colors = ['r','#FF8C00', '#FFFF00', '#7CFC00','#4682B4'] 
 g_labels = [r'${\sigma}^2_b$',r'${\bar\sigma}^2_c$',r'${\bar\sigma}^2_d$',r'${\bar\sigma}^2_m$',r'${\bar\sigma}^2_f$'] 
@@ -52,7 +53,7 @@ if opt == 'singleModel':
     model=sys.argv[2]    # use old convention
     
     updatedModelName = mappedNameDict[model] 
-    if model in ['CS14S4.26', 'CS14.2CVMH', 'CS15.4',]:
+    if model in ['CS14S4.26', 'CS14.2CVMH', ]:
 	ngaModelVersion = 'NGA14' 
     else: 
 	ngaModelVersion = 'NGA08' 
@@ -71,9 +72,13 @@ if opt == 'singleModel':
 
     # basic plots given CyberShake model (absolute and residual with NGA models for the given CyberShake model)
     inpth = wrk + 'inputs/ABFvariances_%s/%s'%(ngaModelVersion, model)  
+    if model == 'CS-LA15.4': 
+	inpth1 = wrk + 'inputs/ABFvariances_14/%s'%model   # for NGA14
 
     G_NGA = []; G_CS = [] 
     g_NGA = []; g_CS = []
+    G_NGA2 = []; 
+    g_NGA2 = []; 
     for it in xrange( len(periods) ): 
 	T = '%.2f'%periods[it]
 	
@@ -82,6 +87,13 @@ if opt == 'singleModel':
 	    infile_g = inpth + '/residual_T%s.csv'%(T) 
 	    Ginputs = np.loadtxt( infile_G, usecols=range(1,7), skiprows=1, delimiter=',') 
 	    ginputs = np.loadtxt( infile_g, usecols=range(1,7), skiprows=1, delimiter=',') 
+	    if model == 'CS15.4': 
+		# NGA14
+		infile_G1 = inpth1 + '/absolute_T%s.csv'%(T) 
+		infile_g1 = inpth1 + '/residual_T%s.csv'%(T) 
+		Ginputs1 = np.loadtxt( infile_G1, usecols=range(1,7), skiprows=1, delimiter=',') 
+		ginputs1 = np.loadtxt( infile_g1, usecols=range(1,7), skiprows=1, delimiter=',') 
+
 	else:
 	    infile_G = inpth + '/absolute_T%s.txt'%(T) 
 	    infile_g = inpth + '/residual_T%s.txt'%(T) 
@@ -89,33 +101,42 @@ if opt == 'singleModel':
 	    ginputs = np.loadtxt( infile_g ) 
 	
 	# Absolute:
-	# CS 
 	X_CS = Ginputs[5,:]**2  # labels: B,C,D,M,F,G  
-	#X_CS = np.sqrt(X_CS)   # to variance
 	G_CS.append( X_CS ) 
 
 	# NGA mean 
 	X_NGA = np.average(Ginputs[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
-	#X_NGA = np.sqrt( X_NGA )
 	G_NGA.append( X_NGA )  
 
 	# residuals 
-	# NGA mean 
 	X_NGA = np.average(ginputs[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
-	#X_NGA = np.sqrt( X_NGA )
 	g_NGA.append( X_NGA )  
+	
+	if model == 'CS15.4':
+	    X_NGA = np.average(Ginputs2[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
+	    G_NGA2.append( X_NGA )  
+
+	    X_NGA = np.average(ginputs2[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
+	    g_NGA2.append( X_NGA )  
     
     G_CS = np.array(G_CS ) # Nt,Nfactors
     G_NGA = np.array(G_NGA) 
     g_NGA = np.array(g_NGA) 
+
+    if model == 'CS15.4':
+	G_NGA2 = np.array(G_NGA2) 
+	g_NGA2 = np.array(g_NGA2) 
 
     # =======================
     # 1. Variance buget for G
     fig = plt.figure(1, (12,8)) 
     plt.rc(('xtick.major'),pad=10)
     ax = fig.add_subplot(111) 
-    G_NGA = np.array( G_NGA )
+    G_NGA = np.array( G_NGA )  # nga 08
     G_CS = np.array(G_CS ) # Nt,Nf
+    if model == 'CS15.4':
+	G_NGA2 = np.array( G_NGA2 )
+
     Nt,Nf = G_CS.shape
     Nf = Nf - 1
     width = 0.15; dx=width/2.
@@ -123,7 +144,6 @@ if opt == 'singleModel':
     bottom1 = np.zeros( Np )
     bottom2 = np.zeros( Np )
 
-    #plt.grid(axis='y',color='grey',linestyle='-')
     plt.grid(axis='y')
     for ifactor1 in xrange(Nf):
 	ifactor = Nf - ifactor1 - 1
@@ -213,7 +233,7 @@ if opt == 'singleModel':
     #ax.set_title('Variance Buget for g')
 
     # xticks 
-    plt.xticks(xticks, ['%.1f'%T for T in periods])
+    plt.xticks(xticks[startIndex:], ['%.1f'%T for T in periods])
     yticks = list(np.arange( 0,0.8, 0.1) )
     plt.yticks(yticks, ['%.1f'%tmp for tmp in yticks] )
     
@@ -268,9 +288,13 @@ if opt == 'allModel':
 
     G_NGA1 = []; G_NGA2 = []
     g_NGA1 = []; g_NGA2 = []
+
+    outFile = os.path.join(pltpth, 'allModels_Variance_Absolute_RawData.dat')
+    fidOut = open(outFile, 'w')
+
     for model in ['CS11','CS13.1','CS13.2', 'CSbbp1D', 'CS14.2CVMH', 'CS14S4.26', 'CS15.4']: 
 	
-	if model in ['CS14S4.26', 'CS14.2CVMH', 'CS15.4',]:
+	if model in ['CS14S4.26', 'CS14.2CVMH']:
 	    ngaModelVersion = 'NGA14' 
 	else: 
 	    ngaModelVersion = 'NGA08' 
@@ -284,10 +308,13 @@ if opt == 'allModel':
 	
 	Np = len(periods)
 	updatedModelName = mappedNameDict[model] 
+        fidOut.write('# %s\n'%updatedModelName) 
 
 	# basic plots given CyberShake model (absolute and residual with NGA models for the given CyberShake model)
 	inpth = wrk + 'inputs/ABFvariances_%s/%s'%(ngaModelVersion, model)  
-
+	if model == 'CS15.4': 
+	    inpth2 = wrk + 'inputs/ABFvariances_NGA14/%s'%(model)  
+	
 	G_CS = []; g_CS = []
 	for it in xrange( len(periods) ): 
 	    T = '%.2f'%periods[it]
@@ -300,8 +327,20 @@ if opt == 'allModel':
 		
 		if model == 'CS15.4':
 		    X_NGA = np.average(Ginputs[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
-		    G_NGA2.append( X_NGA )  
+		    G_NGA1.append( X_NGA )  
+		    
 		    X_NGA = np.average(ginputs[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
+		    g_NGA1.append( X_NGA )  
+		    
+		    # NGA14
+		    infile_G = inpth2 + '/absolute_T%s.csv'%(T) 
+		    infile_g = inpth2 + '/residual_T%s.csv'%(T) 
+		    Ginputs2 = np.loadtxt( infile_G, usecols=range(1,7), skiprows=1, delimiter=',') 
+		    ginputs2 = np.loadtxt( infile_g, usecols=range(1,7), skiprows=1, delimiter=',') 
+
+		    X_NGA = np.average(Ginputs2[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
+		    G_NGA2.append( X_NGA )  
+		    X_NGA = np.average(ginputs2[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
 		    g_NGA2.append( X_NGA )  
 	    	
 	    else:
@@ -310,13 +349,6 @@ if opt == 'allModel':
 		Ginputs = np.loadtxt( infile_G ) 
 		ginputs = np.loadtxt( infile_g ) 
 		
-		if model == 'CS11': 
-		    X_NGA = np.average(Ginputs[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
-		    G_NGA1.append( X_NGA )  
-		    
-		    X_NGA = np.average(ginputs[:4,:]**2, axis=0, weights=np.ones(4)/(1.0*4)) 
-		    g_NGA1.append( X_NGA )  
-	    
 	    # CS 
 	    X_CS = Ginputs[5,:]**2  # labels: B,C,D,M,F,G  
 	    G_CS.append( X_CS ) 
@@ -327,7 +359,6 @@ if opt == 'allModel':
 	# 1. Variance buget for G
 	Nt,Nf = G_CS.shape
 	Nf = Nf - 1
-	
 	bottom = np.zeros(Np) 
 	for ifactor1 in xrange(Nf):
 	    ifactor = Nf - ifactor1 - 1
@@ -338,6 +369,11 @@ if opt == 'allModel':
 		p0 = ax.bar( xticks[startIndex:]+ibar*width, G_CS[:,ifactor], width, color=G_colorsF[ifactor], edgecolor=G_colorsE[ifactor],hatch=G_hatchs[ifactor] ) 
 	    if ibar == 2: 
 		p.append( p0[0] ) 
+            
+            # save to file 
+            outStr = ','.join(['%.4f'%tmpStr for tmpStr in G_CS[:,ifactor]])
+            fidOut.write('%s, %s\n'%(G_colNames[ifactor], outStr))
+
 	ibar += 1 
 	#ax.text( xticks[1]+ibar*width, bottom[1]+G_CS[1,ifactor]+0.1, updatedModelName, ha='center',rotation=90 )
 	ax.text( xticks[1]+ibar*width, 1.6, updatedModelName, ha='center',rotation=90, fontsize=8)
@@ -348,17 +384,23 @@ if opt == 'allModel':
     g_NGA1 = np.array(g_NGA1) 
     g_NGA2 = np.array(g_NGA2) 
     
-    bottom = np.zeros(4) 
+    bottom = np.zeros(5) 
+    fidOut.write('# NGA08mean\n')
     for ifactor1 in xrange(Nf):
 	ifactor = Nf - ifactor1 - 1
 	if ifactor != Nf-1: 
 	    bottom += G_NGA1[:,ifactor+1]
-	    ax.bar( xticks[1:], G_NGA1[:,ifactor], width, bottom=bottom, color=G_colorsF[ifactor], edgecolor=G_colorsE[ifactor], hatch=G_hatchs[ifactor] )
+	    ax.bar( xticks[:], G_NGA1[:,ifactor], width, bottom=bottom, color=G_colorsF[ifactor], edgecolor=G_colorsE[ifactor], hatch=G_hatchs[ifactor] )
 	else: 
-	    ax.bar( xticks[1:], G_NGA1[:,ifactor], width, color=G_colorsF[ifactor], edgecolor=G_colorsE[ifactor],hatch=G_hatchs[ifactor] ) 
+	    ax.bar( xticks[:], G_NGA1[:,ifactor], width, color=G_colorsF[ifactor], edgecolor=G_colorsE[ifactor],hatch=G_hatchs[ifactor] ) 
+        
+        outStr = ','.join(['%.4f'%tmpStr for tmpStr in G_NGA1[:,ifactor]])
+        fidOut.write('%s, %s\n'%(G_colNames[ifactor], outStr))
+    
     ax.text( xticks[1], 1.6, 'NGA08mean', ha='center',rotation=90,fontsize=8 )
     
     bottom = np.zeros(5) 
+    fidOut.write('# NGA14mean\n')
     for ifactor1 in xrange(Nf):
 	ifactor = Nf - ifactor1 - 1
 	if ifactor != Nf-1: 
@@ -366,6 +408,8 @@ if opt == 'allModel':
 	    ax.bar( xticks+width, G_NGA2[:,ifactor], width, bottom=bottom, color=G_colorsF[ifactor], edgecolor=G_colorsE[ifactor], hatch=G_hatchs[ifactor] )
 	else:
 	    ax.bar( xticks+width, G_NGA2[:,ifactor], width, color=G_colorsF[ifactor], edgecolor=G_colorsE[ifactor],hatch=G_hatchs[ifactor] ) 
+        outStr = ','.join(['%.4f'%tmpStr for tmpStr in G_NGA2[:,ifactor]])
+        fidOut.write('%s, %s\n'%(G_colNames[ifactor], outStr))
     ax.text( xticks[1]+width, 1.6, 'NGA14mean', ha='center',fontsize=8, rotation=90 )
 
     # finish plots
@@ -388,5 +432,5 @@ if opt == 'allModel':
     yticks = list(np.arange( 0,2.0, 0.2) )
     plt.yticks(yticks, ['%.1f'%tmp for tmp in yticks] )
 
-    fig.savefig( os.path.join(pltpth, 'AllModels_Variance_Absolute.%s'%(pfmt)), format=pfmt, dpi=300 )
+    fig.savefig( os.path.join(pltpth, 'AllModels_Variance_Absolute_saveRawData.%s'%(pfmt)), format=pfmt, dpi=300 )
 
